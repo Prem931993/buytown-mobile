@@ -103,7 +103,7 @@ export default function ProductListScreen({ route, navigation }) {
 
               <TouchableOpacity
                 onPress={() =>
-                  navigation.push('ProductDetailsScreen', { product: item })
+                  navigation.navigate('ProductDetailsScreen', { product: item })
                 }
               >
                 {/* Show first image as thumbnail */}
