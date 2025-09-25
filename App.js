@@ -170,7 +170,6 @@ export default function App() {
 
           {/* Main App Screens with Tabs */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
-          <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
         </Stack.Navigator>

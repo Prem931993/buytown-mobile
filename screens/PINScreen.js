@@ -20,12 +20,6 @@ export default function PinEntryScreen({ navigation }) {
   const [loginResponse, setLoginResponse] = useState()
   const { apiToken, onGenerateToken, setAccessTokenState, accessTokens  } = useContext(AppContext);
 
-  useEffect(() => {
-    if (accessTokens) {
-      navigation.navigate('MainTabs');
-    }
-  }, [accessTokens, navigation]);
-
   const handlePinChange = (value, index) => {
     // Only handle typing digits, not backspace (handled by onKeyPress)
     if (value && value !== '') {
@@ -68,13 +62,18 @@ export default function PinEntryScreen({ navigation }) {
         console.log('Login PIN Response', response);
         if(response.data.statusCode === 200) {
           setLoginResponse(response.data);
-          const accessToken = response.data.setAccessTokenState;
-          await AsyncStorage.setItem("accessToken", accessToken);
+          const accessToken = response.data.token || response.data.accessToken || response.data.access_token;
+          if (accessToken) {
+            await AsyncStorage.setItem("accessToken", accessToken);
+            setAccessTokenState(accessToken);
+          }
           await AsyncStorage.setItem("refreshToken", String(response.data.refreshToken));
           await AsyncStorage.setItem("userId", String(response.data.user.id));
           await AsyncStorage.setItem("isLoggedIn", "true");
-          setAccessTokenState(accessToken);
-          navigation.navigate('MainTabs');
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       } catch (error) {
         console.error("Error fetching token:", error.response?.data || error.message);
@@ -89,7 +88,10 @@ export default function PinEntryScreen({ navigation }) {
         // For testing, even if API fails, navigate to MainTabs and set dummy data
         await AsyncStorage.setItem("accessToken", "dummy");
         await AsyncStorage.setItem("userId", "dummy");
-        navigation.navigate('MainTabs');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
         // throw error;
       }
 

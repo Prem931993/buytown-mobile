@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  BackHandler,
   Image,
   RefreshControl,
   ScrollView,
@@ -138,6 +140,28 @@ export default function HomeScreen() {
     }
   }, [apiToken, accessTokens, loadingTokens]);
 
+  // Handle back button to exit app
+  useEffect(() => {
+    const backAction = () => {
+      Alert.alert("Exit App", "Are you sure you want to exit?", [
+        {
+          text: "Cancel",
+          onPress: () => null,
+          style: "cancel"
+        },
+        { text: "YES", onPress: () => BackHandler.exitApp() }
+      ]);
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
+
   // Show waiting screen if tokens not loaded yet
   if (loadingTokens || !apiToken || !accessTokens) {
     return (
@@ -181,7 +205,7 @@ export default function HomeScreen() {
               //   navigation.navigate('ProductDetailsScreen', { productId: item?.id })
               // }
               onTouchEnd={() =>
-                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
+                navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
               }
             >
               <View style={styles.imageWrapper}>
@@ -217,7 +241,7 @@ export default function HomeScreen() {
               key={item.id}
               style={styles.flashCard}
               onTouchEnd={() =>
-                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
+                navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
               }
             >
               <Image

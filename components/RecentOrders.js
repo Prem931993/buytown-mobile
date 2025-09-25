@@ -88,7 +88,7 @@ export default function NewArrivals() {
       //     navigation.navigate('ProductDetailsScreen', { productId: item?.id })
       //   }
         onPress={() =>
-          navigation.navigate('ProductDetailsScreen', { product: item }) // pass full object
+          navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
         }
     >
       <Image source={{ uri: item?.images[0]?.path }} style={styles.image} />
