@@ -1,0 +1,46 @@
+# Node modules (should never be uploaded)
+node_modules
+npm-debug.*
+yarn-debug.log*
+yarn-error.log*
+
+# Build directories
+android/.gradle
+android/app/build
+ios/build
+ios/Pods
+*.xcworkspace
+
+# System files
+.DS_Store
+.env
+.env.*
+.idea
+.vscode
+
+# Caches
+*.log
+.cache
+.expo
+.expo-shared
+metro-cache
+*.tar.gz
+
+# Test-related
+__tests__/
+coverage/
+jest.config.js
+
+# Output artifacts
+*.apk
+*.aab
+*.ipa
+
+# Images, videos, or large local assets not required in build
+assets/raw/*
+assets/temp/*
+assets/videos/*
+
+# Ignore local images only used for testing (optional)
+*.psd
+*.sketch

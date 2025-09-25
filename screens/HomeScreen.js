@@ -1,0 +1,349 @@
+import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
+import { useContext, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import RecentOrders from '../components/RecentOrders';
+import BannerCarousel from './../components/BannerCarousel';
+import BrandBar from './../components/BrandBar';
+import Categories from './../components/Categories';
+import HeaderBar from './../components/HeaderBar';
+import { AppContext } from './../ContextAPI/ContextAPI';
+
+const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/top-selling-products`;
+const API_URL_RandomProducts = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/random-products`;
+
+export default function HomeScreen() {
+  const { apiToken, accessTokens, onGenerateToken, loadingTokens } =
+    useContext(AppContext);
+    
+
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [topSellingProducts, setTopSellingProducts] = useState([]);
+  const [randomProducts, setRandomProducts] = useState([]);
+
+  const navigation = useNavigation();
+
+  // Fetch Top Selling Products
+  const fetchTopSelling = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        API_URL,
+        { limit: 6 },
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (response.data.statusCode === 200) {
+        setTopSellingProducts(response.data.products);
+      }
+    } catch (error) {
+      console.error(
+        'Error fetching top-selling products:',
+        error.response?.data || error.message
+      );
+      if (error.response?.status === 401) {
+        // await AsyncStorage.removeItem('accessToken');
+        // await AsyncStorage.removeItem('Token');
+        // onGenerateToken(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch Random Products
+  const fetchRandomProducts = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.post(
+        API_URL_RandomProducts,
+        { limit: 10 },
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (response.data.statusCode === 200) {
+        setRandomProducts(response.data.products);
+      }
+    } catch (error) {
+      console.error(
+        'Error fetching random products:',
+        error.response?.data || error.message
+      );
+      if (error.response?.status === 401) {
+        // await AsyncStorage.removeItem('accessToken');
+        // await AsyncStorage.removeItem('Token');
+        // onGenerateToken(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pull to refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchTopSelling();
+    await fetchRandomProducts();
+    setRefreshing(false);
+  };
+
+  // Handle missing tokens: remove login & redirect
+  const handleNoTokens = async () => {
+    try {
+      // await AsyncStorage.setItem('isLoggedIn', 'false');
+      // console.log('isLoggedIn removed successfully!');
+      navigation.navigate('Pin');
+      // setTimeout(() => {
+      //   navigation.navigate('MainTabs');
+      // }, 1000);
+
+      
+      
+    } catch (e) {
+      console.error('Error removing isLoggedIn:', e);
+    }
+  };
+
+  // Initial fetch / token handling
+  useEffect(() => {
+    if (!loadingTokens) {
+      if (apiToken?.length && accessTokens?.length) {
+        fetchTopSelling();
+        fetchRandomProducts();
+      } else {
+        handleNoTokens(); // Clear login and redirect
+        // onGenerateToken(true); // Regenerate token if needed
+      }
+    }
+  }, [apiToken, accessTokens, loadingTokens]);
+
+  // Show waiting screen if tokens not loaded yet
+  if (loadingTokens || !apiToken || !accessTokens) {
+    return (
+      <SafeAreaView style={styles.loadingContainer} edges={[]}>
+        <ActivityIndicator size="large" color="#eb1f2a" />
+        <Text style={styles.loadingText}>Preparing your session...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#eb1f2a" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      )}
+
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 60 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <HeaderBar />
+        <Categories />
+        <BannerCarousel />
+
+        {/* Top Selling Products */}
+        <View style={styles.productWrap}>
+          <View style={styles.sectionRow}>
+            <Text style={styles.sectionTitle}>Top Selling Products</Text>
+          </View>
+        <View style={styles.sectionRow}></View>
+          {topSellingProducts.map((item) => (
+            <View
+              key={item.id}
+              style={styles.flashCard}
+              // onTouchEnd={() =>
+              //   navigation.navigate('ProductDetailsScreen', { productId: item?.id })
+              // }
+              onTouchEnd={() =>
+                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
+              }
+            >
+              <View style={styles.imageWrapper}>
+                <Image
+                  source={{ uri: item?.images[0]?.path }}
+                  style={styles.flashImage}
+                />
+                {item.isBestSeller && (
+                  <View style={styles.bestSellerLabel}>
+                    <Text style={styles.bestSellerText}>Best Seller</Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.flashName}>{item.name}</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.offerPrice}>
+                  <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
+                  {item?.selling_price}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <RecentOrders />
+        <BrandBar />
+
+        {/* Random Products */}
+        <View style={styles.productList}>
+          {randomProducts?.map((item) => (
+            <View
+              key={item.id}
+              style={styles.flashCard}
+              onTouchEnd={() =>
+                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
+              }
+            >
+              <Image
+                source={{ uri: item?.images[0]?.path }}
+                style={styles.flashImage}
+              />
+              <Text style={styles.flashName}>{item.name}</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.offerPrice}>
+                  <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
+                  {item?.selling_price}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
+    marginTop: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  productWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    backgroundColor: '#f8f7ffff',
+    marginTop: 30,
+    marginHorizontal: 20,
+    borderRadius: 10,
+    paddingBottom: 15,
+  },
+  productList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 30,
+    marginHorizontal: 20,
+    borderRadius: 10,
+  },
+  flashCard: {
+    width: '48%',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+    elevation: 3,
+  },
+  imageWrapper: {
+    position: 'relative',
+  },
+  flashImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'contain',
+    borderRadius: 4,
+  },
+  bestSellerLabel: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    backgroundColor: '#F44336',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    zIndex: 1,
+  },
+  bestSellerText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  flashName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 8,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offerPrice: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  strikeOut: {
+    textDecorationLine: 'line-through',
+    textDecorationStyle: 'solid',
+    color: '#999999',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#eb1f2a',
+  },
+});

@@ -1,0 +1,197 @@
+// AppContext.js
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createContext, useEffect, useState } from "react";
+import { Alert } from "react-native";
+import { getBearerToken } from "./../auth/authServices";
+
+export const AppContext = createContext();
+
+export const AppProvider = ({ children }) => {
+  const [apiToken, setapiToken] = useState(null);
+  const [accessTokens, setAccessTokens] = useState(null);
+  const [otp, setOtp] = useState(null);
+  const [otpCode, setOtpCode] = useState(null);
+  const [cart, setCart] = useState({ product_id: null, quantity: 0 });
+  const [loadingTokens, setLoadingTokens] = useState(true); // 👈 added
+
+  const [cartRefresh, setCartRefresh] = useState(false)
+
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const tokken = await AsyncStorage.getItem("apiToken");
+        const accessToken = await AsyncStorage.getItem("accessToken");
+        if (accessToken) setAccessTokens(accessToken);
+
+        if (!tokken) {
+          // if no Token, generate new one
+          const token = await getBearerToken();
+          await AsyncStorage.setItem("apiToken", token);
+          setapiToken(token);
+        } else {
+          setapiToken(tokken);
+        }
+      } catch (e) {
+        console.log("Token error:", e);
+      } finally {
+        setLoadingTokens(false); // 👈 mark tokens loaded
+      }
+    };
+
+    fetchToken();
+  }, []);
+
+  const onGenerateToken = async (force) => {
+    if (force) {
+      try {
+        const token = await getBearerToken();
+        await AsyncStorage.setItem("apiToken", token);
+        setapiToken(token);
+      } catch (e) {
+        console.log("Regenerate token error:", e);
+      }
+    }
+  };
+
+  const onOTP = (data) => setOtp(data);
+  const onOTPCode = (code) => setOtpCode(code);
+
+  // Cart functions
+  // const addToCart = (product) => {
+  //   setCart((prevCart) => {
+  //     const existingItem = prevCart.find((item) => item.id === product.id);
+  //     if (existingItem) {
+  //       return prevCart.map((item) =>
+  //         item.id === product.id
+  //           ? { ...item, quantity: item.quantity + 1 }
+  //           : item
+  //       );
+  //     } else {
+  //       return [...prevCart, { ...product, quantity: 1 }];
+  //     }
+  //   });
+  // };
+
+  const addToCart = (product) => {
+    setCart((prevCart) => {
+      // If same product -> increase quantity
+      if (prevCart.product_id === product) {
+        return {
+          ...prevCart,
+          quantity: prevCart.quantity + 1,
+        };
+      }
+
+      // If new product -> replace with new object
+      return {
+        product_id: product,
+        quantity: 1,
+      };
+    });
+  };
+
+  const removeFromCart = (productId) => {
+    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+  };
+
+  const decreaseQuantity = () => {
+    setCart((prevCart) => {
+      if (prevCart.product_id === product) {
+        if (prevCart.quantity > 1) {
+          return { ...prevCart, quantity: prevCart.quantity - 1 };
+        }
+      }
+      return prevCart; // do nothing if already 1
+    });
+  };
+  
+
+  const updateQuantity = (productId, quantity) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+    } else {
+      setCart((prevCart) =>
+        prevCart.map((item) =>
+          item.id === productId ? { ...item, quantity } : item
+        )
+      );
+    }
+  };
+
+  const getTotal = (data) => {
+    console.log("getTotal", data);
+    return data;
+  };
+
+  const setAccessTokenState = (token) => {
+    setAccessTokens(token);
+  };
+
+  useEffect(()=> {
+    console.log("Cart", cart)
+  }, [cart]);
+
+  const onRefereshCart = (data) => {
+    setCartRefresh(data);
+  }
+
+  const logout = async (navigation) => {
+    try {
+      // Get all keys from AsyncStorage
+      const keys = await AsyncStorage.getAllKeys();
+
+      // Clear all data except accessToken and Token
+      const keysToRemove = keys.filter(key =>
+        key !== 'accessToken' &&
+        key !== 'Token' &&
+        key !== 'apiToken'
+      );
+
+      await AsyncStorage.multiRemove(keysToRemove);
+
+      // Reset context state
+      setOtp(null);
+      setOtpCode(null);
+      setCart({ product_id: null, quantity: 0 });
+      setCartRefresh(false);
+
+      // Show success message
+      Alert.alert('Success', 'You have been logged out successfully');
+
+      // Navigate to welcome screen
+      if (navigation) {
+        navigation.navigate('Welcome');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      Alert.alert('Error', 'Failed to logout. Please try again.');
+    }
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        apiToken,
+        accessTokens,
+        onGenerateToken,
+        onOTP,
+        otp,
+        onOTPCode,
+        otpCode,
+        cart,
+        // addToCart,
+        removeFromCart,
+        updateQuantity,
+        decreaseQuantity,
+        getTotal,
+        loadingTokens, // 👈 expose this
+        setAccessTokenState,
+        onRefereshCart,
+        cartRefresh,
+        logout
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+};
