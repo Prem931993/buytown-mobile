@@ -38,8 +38,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async(values) => {
     // navigation.replace('Home');
-    const Identity = await AsyncStorage.getItem("Identity");
-console.log('values', values.email);
+    await AsyncStorage.getItem("Identity");
     if(apiToken) {
       try {
         const response = await axios.post(`${API_URL}`, {phone_no: values.email}, {
@@ -48,7 +47,6 @@ console.log('values', values.email);
             'Content-Type': 'application/json'
           }
         })
-        console.log('Forgot Password Response', response);
         if(response.data.statusCode === 200) {
           onOTP(response.data.opt)
           navigation.navigate('SetPin');

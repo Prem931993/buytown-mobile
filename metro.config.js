@@ -3,4 +3,30 @@ const { getDefaultConfig } = require('expo/metro-config');
 
 const config = getDefaultConfig(__dirname);
 
+// Intercept module resolution for web to mock native modules
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (platform === 'web') {
+    if (moduleName === 'react-native-maps') {
+      return {
+        filePath: require.resolve('./mocks/react-native-maps.js'),
+        type: 'sourceFile',
+      };
+    }
+    if (moduleName === 'react-native-maps-directions') {
+      return {
+        filePath: require.resolve('./mocks/react-native-maps-directions.js'),
+        type: 'sourceFile',
+      };
+    }
+    if (moduleName === 'react-native-geolocation-service') {
+      return {
+        filePath: require.resolve('./mocks/react-native-geolocation-service.js'),
+        type: 'sourceFile',
+      };
+    }
+  }
+  // Fallback to default resolver
+  return context.resolveRequest(context, moduleName, platform);
+};
+
 module.exports = config;

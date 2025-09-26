@@ -42,6 +42,7 @@ function HomeStackScreen() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -52,8 +53,8 @@ function CategoryStackScreen() {
       <CategoryStack.Screen name="CategoryMain" component={CategoryScreen} />
       <CategoryStack.Screen name="SubCategoryScreen" component={SubCategoryScreen} />
       <CategoryStack.Screen name="VariantScreen" component={VariantScreen} />
-      <CategoryStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
       <CategoryStack.Screen name="ProductListScreen" component={ProductListScreen} />
+      <CategoryStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
     </CategoryStack.Navigator>
   );
 }
@@ -122,7 +123,6 @@ export default function App() {
   //       const clearLogin = async () => {
   //         try {
   //           await AsyncStorage.setItem("isLoggedIn", "false");
-  //           console.log("isLoggedIn removed successfully!");
   //         } catch (e) {
   //           console.error("Error removing isLoggedIn:", e);
   //         }
@@ -172,6 +172,7 @@ export default function App() {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
+          <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <Toast />

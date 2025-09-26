@@ -28,7 +28,6 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
   const [checked, setChecked] = React.useState(false);
 
   const handleComplete = (otp) => {
-    console.log('enteredOtp', enteredOtp, otp);
     if (enteredOtp == otp) {
       // setOrders(prev =>
       //   prev.map(order =>

@@ -32,7 +32,6 @@ export default function Categories() {
             'Content-Type': 'application/json'
           }
         })
-        console.log('categories', response);
         // setLoading(false);
         if(response.status === 200) {
           setCategories(response.data.data.selected_categories)
@@ -40,7 +39,6 @@ export default function Categories() {
       } catch (error) {
         console.error("Error fetching top-selling products:", error.response?.data || error.message);
         if (error.response?.status === 401) {
-          console.log("Tokens invalid, clearing and regenerating...");
           // Clear invalid tokens
           await AsyncStorage.removeItem("accessToken");
           await AsyncStorage.removeItem("apiToken");
@@ -53,8 +51,6 @@ export default function Categories() {
     }
 
     if(apiToken && accessTokens) {
-      console.log("accessTokens-------:", accessTokens);
-      console.log("apiToken-------------:", apiToken);
       fetchTopSelling()
     }
 
@@ -64,17 +60,17 @@ export default function Categories() {
   return (
     <View style={styles.categories}>
       {categories?.map((cat) => (
-        <TouchableOpacity key={cat.id} style={styles.categoryItem} 
-          onPress={() => 
-            navigation.navigate('ProductListScreen', {category_id: cat?.id, name: cat?.name})
+        <TouchableOpacity key={cat.id} style={styles.categoryItem}
+          onPress={() =>
+            navigation.navigate('MainTabs', { screen: 'Category' })
           }
-          
+
         >
           <Image source={{uri: cat.image}} style={styles.categoryImage} />
           <Text style={styles.categoryLabel}>{cat.name}</Text>
         </TouchableOpacity>
       ))}
-      <TouchableOpacity style={styles.categoryItem} onPress={() => navigation.navigate('Category')}>
+      <TouchableOpacity style={styles.categoryItem} onPress={() => navigation.navigate('MainTabs', { screen: 'Category' })}>
           <Icon name='grid-outline' size={28} color="#999" />
           <Text style={styles.categoryLabel}>SEE MORE</Text>
         </TouchableOpacity>

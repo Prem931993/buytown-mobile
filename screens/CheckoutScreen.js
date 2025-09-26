@@ -1,22 +1,32 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import MapViewDirections from 'react-native-maps-directions';
-import Geolocation from 'react-native-geolocation-service';
-import InnerHeader from './../components/InnerHeader';
+
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import { Colors } from '../constants/theme';
 import axios from 'axios';
 
-// Coimbatore coordinates (641002)
+// Conditionally import map components only for native platforms
+let MapView, Marker, MapViewDirections, Geolocation;
+if (Platform.OS !== 'web') {
+  try {
+    MapView = require('react-native-maps').default;
+    Marker = require('react-native-maps').Marker;
+    MapViewDirections = require('react-native-maps-directions').default;
+    Geolocation = require('react-native-geolocation-service').default;
+  } catch (error) {
+    console.warn('Map components not available on this platform');
+  }
+}
+
+// RS Puram, Coimbatore coordinates
 const COIMBATORE_COORDS = {
-  latitude: 11.0168,
-  longitude: 76.9558,
+  latitude: 11.0046,
+  longitude: 76.9572,
 };
 
 // Google Maps API Key - Add to your .env file as EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'YOUR_GOOGLE_MAPS_API_KEY';
+const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ';
 
 export default function CheckoutScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
@@ -79,7 +89,14 @@ export default function CheckoutScreen({ navigation }) {
     );
     setSelectedDistance(distance);
     setDeliveryDistance(Math.round(distance));
-    setIsWithinRadius(distance <= 25);
+    const withinRadius = distance <= 25;
+    setIsWithinRadius(withinRadius);
+    if (!withinRadius) {
+      Alert.alert(
+        'Delivery Unavailable',
+        'This location is outside our 25km delivery radius from RS Puram, Coimbatore. Please select a location within the radius.'
+      );
+    }
   };
 
   useEffect(() => {
@@ -130,6 +147,11 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   const getCurrentLocation = async () => {
+    if (!Geolocation) {
+      Alert.alert('Error', 'Location services not available on this platform');
+      return;
+    }
+
     const hasPermission = await requestLocationPermission();
     if (!hasPermission) {
       Alert.alert('Permission Denied', 'Location permission is required to get your current location.');
@@ -148,6 +170,7 @@ export default function CheckoutScreen({ navigation }) {
         setMapRegion(newRegion);
         setDestinationCoords({ latitude, longitude });
         updateDistanceAndValidation(latitude, longitude);
+        reverseGeocode(latitude, longitude);
       },
       (error) => {
         console.error(error);
@@ -158,13 +181,14 @@ export default function CheckoutScreen({ navigation }) {
   };
 
   const handleRegionChange = (region) => {
-    updateDistanceAndValidation(region.latitude, region.longitude);
+    // Distance calculation is handled only on location selection, not on map scroll
   };
 
   const handleMapPress = (event) => {
     const { coordinate } = event.nativeEvent;
     setDestinationCoords(coordinate);
     updateDistanceAndValidation(coordinate.latitude, coordinate.longitude);
+    reverseGeocode(coordinate.latitude, coordinate.longitude);
   };
 
   const handleDirectionsReady = (result) => {
@@ -183,6 +207,69 @@ export default function CheckoutScreen({ navigation }) {
     }
   };
 
+  const reverseGeocode = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_APIKEY}`
+      );
+      if (response.data.results && response.data.results.length > 0) {
+        const addressComponents = response.data.results[0].address_components;
+        let street = '';
+        let city = '';
+        let state = '';
+        let zip = '';
+        addressComponents.forEach(component => {
+          if (component.types.includes('street_number') || component.types.includes('route')) {
+            street += component.long_name + ' ';
+          }
+          if (component.types.includes('locality')) {
+            city = component.long_name;
+          }
+          if (component.types.includes('administrative_area_level_1')) {
+            state = component.long_name;
+          }
+          if (component.types.includes('postal_code')) {
+            zip = component.long_name;
+          }
+        });
+        setShippingAddress(prev => ({
+          ...prev,
+          street: street.trim(),
+          city,
+          state,
+          zip_code: zip,
+        }));
+      }
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+    }
+  };
+
+  const geocodePincode = async (pincode) => {
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}+India&key=${GOOGLE_MAPS_APIKEY}`
+      );
+      if (response.data.results && response.data.results.length > 0) {
+        const location = response.data.results[0].geometry.location;
+        const newRegion = {
+          ...mapRegion,
+          latitude: location.lat,
+          longitude: location.lng,
+        };
+        setMapRegion(newRegion);
+        setDestinationCoords({ latitude: location.lat, longitude: location.lng });
+        updateDistanceAndValidation(location.lat, location.lng);
+        reverseGeocode(location.lat, location.lng);
+      } else {
+        Alert.alert('Invalid Pincode', 'Could not find location for the entered pincode.');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      Alert.alert('Error', 'Failed to fetch location for pincode.');
+    }
+  };
+
   const fetchGSTDetails = async (gstNumber) => {
     if (!gstNumber || gstNumber.length < 15) return;
     setGstLoading(true);
@@ -191,6 +278,13 @@ export default function CheckoutScreen({ navigation }) {
       if (response.data && response.data.success) {
         const data = response.data.data;
         setBillingAddress(prev => ({
+          ...prev,
+          street: data.address || prev.street,
+          city: data.city || prev.city,
+          state: data.state || prev.state,
+          zip_code: data.pincode || prev.zip_code,
+        }));
+        setShippingAddress(prev => ({
           ...prev,
           street: data.address || prev.street,
           city: data.city || prev.city,
@@ -225,7 +319,7 @@ export default function CheckoutScreen({ navigation }) {
       return;
     }
     if (!isWithinRadius) {
-      Alert.alert('Error', 'Delivery is only available within 25km radius of Coimbatore (641002)');
+      Alert.alert('Error', 'Delivery is only available within 25km radius from RS Puram, Coimbatore');
       return;
     }
     setLoading(true);
@@ -272,9 +366,63 @@ export default function CheckoutScreen({ navigation }) {
     </View>
   );
 
+  const renderMapSection = () => {
+    if (Platform.OS === 'web' || !MapView) {
+      return (
+        <View style={styles.mapPlaceholder}>
+          <Icon name="map-outline" size={48} color="#ccc" />
+          <Text style={styles.mapPlaceholderText}>Map not available on web</Text>
+        </View>
+      );
+    }
+
+    return (
+      <MapView
+        style={styles.map}
+        region={mapRegion}
+        onRegionChangeComplete={handleRegionChange}
+        onPress={handleMapPress}
+      >
+        <Marker
+          coordinate={COIMBATORE_COORDS}
+          pinColor="blue"
+          title="RS Puram Center"
+        />
+        {destinationCoords && (
+          <Marker
+            coordinate={destinationCoords}
+            pinColor="red"
+            title="Delivery Location"
+          />
+        )}
+        {destinationCoords && MapViewDirections && (
+          <MapViewDirections
+            origin={COIMBATORE_COORDS}
+            destination={destinationCoords}
+            apikey={GOOGLE_MAPS_APIKEY}
+            strokeWidth={3}
+            strokeColor="#f67179"
+            onReady={handleDirectionsReady}
+            onError={handleDirectionsError}
+          />
+        )}
+      </MapView>
+    );
+  };
+
   return (
     <>
-      <InnerHeader />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Icon name="arrow-back-outline" size={24} color="#000" />
+        </TouchableOpacity>
+        <View style={styles.logoContainer}>
+          <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
+        </View>
+        <TouchableOpacity style={styles.notificationButton}>
+          <Icon name="notifications-outline" size={24} color="#000" />
+        </TouchableOpacity>
+      </View>
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.title}>Checkout</Text>
@@ -341,48 +489,26 @@ export default function CheckoutScreen({ navigation }) {
               placeholder="Zip Code"
               keyboardType="numeric"
               value={shippingAddress.zip_code}
-              onChangeText={(text) => setShippingAddress({ ...shippingAddress, zip_code: text })}
+              onChangeText={(text) => {
+                setShippingAddress({ ...shippingAddress, zip_code: text });
+                if (text.length === 6) {
+                  geocodePincode(text);
+                }
+              }}
             />
-            <TouchableOpacity style={styles.locationBtn} onPress={getCurrentLocation}>
-              <Icon name="location-outline" size={20} color="#fff" />
-              <Text style={styles.locationBtnText}>Use Current Location</Text>
-            </TouchableOpacity>
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity style={styles.locationBtn} onPress={getCurrentLocation}>
+                <Icon name="location-outline" size={20} color="#fff" />
+                <Text style={styles.locationBtnText}>Use Current Location</Text>
+              </TouchableOpacity>
+            )}
             <View style={styles.distanceContainer}>
               <Text style={[styles.distanceText, !isWithinRadius && styles.errorText]}>
-                Distance from Coimbatore: {selectedDistance.toFixed(2)} km
+                Distance from RS Puram: {selectedDistance.toFixed(2)} km
                 {!isWithinRadius && ' (Outside 25km delivery radius)'}
               </Text>
             </View>
-            <MapView
-              style={styles.map}
-              region={mapRegion}
-              onRegionChangeComplete={handleRegionChange}
-              onPress={handleMapPress}
-            >
-              <Marker
-                coordinate={COIMBATORE_COORDS}
-                pinColor="blue"
-                title="Coimbatore Center"
-              />
-              {destinationCoords && (
-                <Marker
-                  coordinate={destinationCoords}
-                  pinColor="red"
-                  title="Delivery Location"
-                />
-              )}
-              {destinationCoords && (
-                <MapViewDirections
-                  origin={COIMBATORE_COORDS}
-                  destination={destinationCoords}
-                  apikey={GOOGLE_MAPS_APIKEY}
-                  strokeWidth={3}
-                  strokeColor="#f67179"
-                  onReady={handleDirectionsReady}
-                  onError={handleDirectionsError}
-                />
-              )}
-            </MapView>
+            {renderMapSection()}
             <Text style={styles.mapInstruction}>
               Tap on the map to select your delivery location and see the route
             </Text>
@@ -470,9 +596,12 @@ export default function CheckoutScreen({ navigation }) {
 
           {/* Place Order Button */}
           <TouchableOpacity
-            style={styles.placeOrderBtn}
+            style={[
+              styles.placeOrderBtn,
+              (!isWithinRadius || loading) && styles.disabledBtn
+            ]}
             onPress={handlePlaceOrder}
-            disabled={loading}
+            disabled={loading || !isWithinRadius}
           >
             {loading ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="card-outline" size={20} color="#fff" style={styles.btnIcon} />}
             <Text style={styles.placeOrderText}>{loading ? 'Placing Order...' : 'Place Order'}</Text>
@@ -484,6 +613,29 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  header: {
+    backgroundColor: '#fff',
+    paddingTop: 20,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    padding: 5,
+  },
+  logoContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  notificationButton: {
+    padding: 5,
+  },
+  logo: {
+    width: 100,
+    height: 40,
+    resizeMode: 'contain',
+  },
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   scrollContainer: { padding: 20 },
   title: {
@@ -580,6 +732,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   map: { height: 200, marginTop: 10, borderRadius: 8 },
+  mapPlaceholder: {
+    height: 200,
+    marginTop: 10,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  mapPlaceholderText: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 10,
+  },
   mapInstruction: {
     fontSize: 12,
     color: '#666',
@@ -616,6 +783,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     flexDirection: 'row',
     justifyContent: 'center',
+  },
+  disabledBtn: {
+    backgroundColor: '#ccc',
+    elevation: 0,
+    shadowOpacity: 0,
   },
   btnIcon: {
     marginRight: 8,

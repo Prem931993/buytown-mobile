@@ -24,7 +24,6 @@ export default function BrandScroll() {
             'Content-Type': 'application/json'
           }
         })
-        console.log('topBrands', response);
         // setLoading(false);
         if(response.data.statusCode === 200) {
           setTopBrands(response.data.brands)
@@ -32,7 +31,6 @@ export default function BrandScroll() {
       } catch (error) {
         console.error("Error fetching top-selling products:", error.response?.data || error.message);
         if (error.response?.status === 401) {
-          console.log("Tokens invalid, clearing and regenerating...");
           // Clear invalid tokens
           // await AsyncStorage.removeItem("accessToken");
           // await AsyncStorage.removeItem("apiToken");
@@ -45,8 +43,6 @@ export default function BrandScroll() {
     }
 
     if(apiToken && accessTokens) {
-      console.log("accessTokens-------:", accessTokens);
-      console.log("apiToken-------------:", apiToken);
       fetchTopSelling()
     }
 

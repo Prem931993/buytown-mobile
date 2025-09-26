@@ -237,7 +237,6 @@ export default function DeliveryListScreen() {
               <TouchableOpacity
                 style={[styles.modalButton, { backgroundColor: '#ff4444' }]}
                 onPress={() => {
-                  console.log('Cancel Reason:', cancelReason);
                   setCancelModalVisible(false);
                   // Call API or perform cancel logic here
                 }}

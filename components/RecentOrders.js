@@ -53,15 +53,13 @@ export default function NewArrivals() {
             'Content-Type': 'application/json'
           }
         })
-        console.log('NewArrivals', response);
         // setLoading(false);
         if(response.data.statusCode === 200) {
-          setNewArrivals(response.data.products)
+          setNewArrivals(response.data.products.filter(item => item && item.id))
         }
       } catch (error) {
         console.error("Error fetching top-selling products:", error.response?.data || error.message);
         if (error.response?.status === 401) {
-          console.log("Tokens invalid, clearing and regenerating...");
           // Clear invalid tokens
           await AsyncStorage.removeItem("accessToken");
           await AsyncStorage.removeItem("apiToken");
@@ -74,8 +72,6 @@ export default function NewArrivals() {
     }
 
     if(apiToken && accessTokens) {
-      console.log("accessTokens-------:", accessTokens);
-      console.log("apiToken-------------:", apiToken);
       fetchTopSelling()
     }
 
@@ -83,13 +79,8 @@ export default function NewArrivals() {
 
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card} 
-      //  onPress={() =>
-      //     navigation.navigate('ProductDetailsScreen', { productId: item?.id })
-      //   }
-        onPress={() =>
-          navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
-        }
+    <TouchableOpacity style={styles.card}
+       onPress={() => navigation.navigate('ProductDetailsScreen', { product: item })}
     >
       <Image source={{ uri: item?.images[0]?.path }} style={styles.image} />
       <Text numberOfLines={2} style={styles.name}>{item.name}</Text>

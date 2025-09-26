@@ -50,7 +50,6 @@ export default function PinEntryScreen({ navigation }) {
     const joinedPin = pin.join('');
     if (joinedPin.length === 4) {
       const Identity = await AsyncStorage.getItem("Identity");
-      console.log('Identity', Identity);
 
       try {
         const response = await axios.post(`${API_URL}`, {identity: Identity, password: joinedPin}, {
@@ -59,7 +58,6 @@ export default function PinEntryScreen({ navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        console.log('Login PIN Response', response);
         if(response.data.statusCode === 200) {
           setLoginResponse(response.data);
           const accessToken = response.data.token || response.data.accessToken || response.data.access_token;
@@ -117,7 +115,7 @@ export default function PinEntryScreen({ navigation }) {
       <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
       {/* <I
       ine" size={24} color="#ffffff" style={{ marginBottom: 10,}} /> */}
-      {/* <Image source={require('./../assets/logo.png')} style={{ width: 250, height: 65, resizeMode: 'contain', marginBottom: 10 }}/> */}
+      {/* <Image source={require('./../assets/logo-brand.png')} style={{ width: 250, height: 65, resizeMode: 'contain', marginBottom: 10 }}/> */}
       <Text style={styles.welcome}>Welcome user</Text>
       <Text style={styles.instruction}>Enter the 4-digit Pin</Text>
 

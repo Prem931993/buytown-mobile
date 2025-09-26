@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 import { Formik } from 'formik';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,24 +18,55 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Yup from 'yup';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
-const PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/update-profile`; // hypothetical endpoint
+const PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/profile`;
+const UPDATE_PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/update-profile`;
 
 const validationSchema = Yup.object().shape({
-  name: Yup.string().required('Full Name is required').min(2, 'Name must be at least 2 characters'),
+  firstname: Yup.string().required('First Name is required').min(2, 'First Name must be at least 2 characters'),
+  lastname: Yup.string().required('Last Name is required').min(2, 'Last Name must be at least 2 characters'),
   email: Yup.string().email('Invalid email').required('Email is required'),
   phone: Yup.string().required('Phone Number is required').matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
+  gstin: Yup.string().optional(),
 });
 
 export default function ProfileScreen({ navigation }) {
-  const { apiToken, logout } = useContext(AppContext);
+  const { apiToken, accessTokens, logout } = useContext(AppContext);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await axios.get(PROFILE_API, {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.data.statusCode === 200) {
+          setProfile(response.data.user); // Assuming the user data is in response.data.user
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error.response?.data || error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (apiToken && accessTokens) {
+      fetchProfile();
+    }
+  }, [apiToken, accessTokens]);
 
   const handleSubmit = async (values, { setSubmitting }) => {
     setSubmitting(true);
     try {
       const userId = await AsyncStorage.getItem("userId");
-      const response = await axios.post(PROFILE_API, { userId, ...values }, {
+      const response = await axios.post(UPDATE_PROFILE_API, { userId, ...values }, {
         headers: {
           'Authorization': `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
           'Content-Type': 'application/json'
         }
       });
@@ -67,24 +98,63 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.subtitle}>Help us personalize your experience</Text>
         </View>
 
-        <Formik
-          initialValues={{ name: '', email: '', phone: '' }}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#eb1f2a" />
+            <Text style={styles.loadingText}>Loading profile...</Text>
+          </View>
+        ) : (
+          <Formik
+          initialValues={{
+            gstin: profile?.gstin || '',
+            firstname: profile?.firstname || '',
+            lastname: profile?.lastname || '',
+            email: profile?.email || '',
+            phone: profile?.phone_no?.slice(-10) || ''
+          }}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
+          enableReinitialize
         >
           {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting }) => (
             <View style={styles.form}>
               <View style={styles.inputContainer}>
-                <Text style={styles.label}>Full Name</Text>
+                <Text style={styles.label}>GSTIN Number</Text>
                 <TextInput
-                  style={[styles.input, touched.name && errors.name && styles.inputError]}
-                  placeholder="Enter your full name"
-                  value={values.name}
-                  onChangeText={handleChange('name')}
-                  onBlur={handleBlur('name')}
+                  style={[styles.input, touched.gstin && errors.gstin && styles.inputError]}
+                  placeholder="Enter your GSTIN number"
+                  value={values.gstin}
+                  onChangeText={handleChange('gstin')}
+                  onBlur={handleBlur('gstin')}
+                  autoCapitalize="characters"
+                />
+                {touched.gstin && errors.gstin && <Text style={styles.errorText}>{errors.gstin}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>First Name</Text>
+                <TextInput
+                  style={[styles.input, touched.firstname && errors.firstname && styles.inputError]}
+                  placeholder="Enter your first name"
+                  value={values.firstname}
+                  onChangeText={handleChange('firstname')}
+                  onBlur={handleBlur('firstname')}
                   autoCapitalize="words"
                 />
-                {touched.name && errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+                {touched.firstname && errors.firstname && <Text style={styles.errorText}>{errors.firstname}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  style={[styles.input, touched.lastname && errors.lastname && styles.inputError]}
+                  placeholder="Enter your last name"
+                  value={values.lastname}
+                  onChangeText={handleChange('lastname')}
+                  onBlur={handleBlur('lastname')}
+                  autoCapitalize="words"
+                />
+                {touched.lastname && errors.lastname && <Text style={styles.errorText}>{errors.lastname}</Text>}
               </View>
 
               <View style={styles.inputContainer}>
@@ -140,6 +210,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
           )}
         </Formik>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

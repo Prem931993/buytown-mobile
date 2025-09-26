@@ -51,8 +51,6 @@ export default function CartScreen({ navigation }) {
         cart_item_id: item?.cart_item_id,
         quantity: newQuantity
       }
-
-      console.log('cartItem', cartItem);
       try {
         const response = await axios.put(`${API_URL_CART}`, cartItem, {
           headers: {
@@ -61,7 +59,6 @@ export default function CartScreen({ navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        console.log('Add to Cart', response);
         Toast.show({ type: 'success', text1: 'Quantity updated successfully!' });
         onRefereshCart(true);
       } catch (error) {
@@ -94,7 +91,6 @@ export default function CartScreen({ navigation }) {
           cart_item_id: cartItemId
         }
       });
-      console.log('Remove from Cart', response);
       Toast.show({ type: 'success', text1: 'Item removed from cart!' });
       onRefereshCart(true);
     } catch (error) {

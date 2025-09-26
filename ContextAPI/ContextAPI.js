@@ -119,7 +119,6 @@ export const AppProvider = ({ children }) => {
   };
 
   const getTotal = (data) => {
-    console.log("getTotal", data);
     return data;
   };
 
@@ -128,7 +127,6 @@ export const AppProvider = ({ children }) => {
   };
 
   useEffect(()=> {
-    console.log("Cart", cart)
   }, [cart]);
 
   const onRefereshCart = (data) => {

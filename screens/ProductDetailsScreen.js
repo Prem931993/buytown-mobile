@@ -71,7 +71,6 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const addToCartAPI = async(productId, quantity) => {
       // setLoading(true);
-      console.log("quantity", quantity)
       try {
         const response = await axios.post(`${API_URL_CART}`, {
           product_id: productId,
@@ -83,7 +82,6 @@ export default function ProductDetailsScreen({ route, navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        console.log('Add to Cart', response);
         // setLoading(false);
         if(response.data.statusCode === 200) {
             onRefereshCart(true);

@@ -114,7 +114,6 @@ export default function HomeScreen() {
   const handleNoTokens = async () => {
     try {
       // await AsyncStorage.setItem('isLoggedIn', 'false');
-      // console.log('isLoggedIn removed successfully!');
       navigation.navigate('Pin');
       // setTimeout(() => {
       //   navigation.navigate('MainTabs');
@@ -197,15 +196,12 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>Top Selling Products</Text>
           </View>
         <View style={styles.sectionRow}></View>
-          {topSellingProducts.map((item) => (
+          {topSellingProducts.filter(item => item).map((item) => (
             <View
               key={item.id}
               style={styles.flashCard}
-              // onTouchEnd={() =>
-              //   navigation.navigate('ProductDetailsScreen', { productId: item?.id })
-              // }
-              onTouchEnd={() =>
-                navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
+            onTouchEnd={() =>
+                navigation.navigate('ProductDetailsScreen', { product: item })
               }
             >
               <View style={styles.imageWrapper}>
@@ -236,12 +232,12 @@ export default function HomeScreen() {
 
         {/* Random Products */}
         <View style={styles.productList}>
-          {randomProducts?.map((item) => (
+          {randomProducts?.filter(item => item).map((item) => (
             <View
               key={item.id}
               style={styles.flashCard}
               onTouchEnd={() =>
-                navigation.navigate('Category', { screen: 'ProductDetailsScreen', params: { product: item } }) // pass full object
+                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
               }
             >
               <Image

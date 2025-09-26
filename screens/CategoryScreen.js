@@ -342,7 +342,6 @@ export default function CategoryScreen() {
             'Content-Type': 'application/json'
           }
         })
-        console.log('topBrands', response);
         // setLoading(false);
         if(response.data.statusCode === 200) {
           setCategories(response.data.categories)
@@ -350,7 +349,6 @@ export default function CategoryScreen() {
       } catch (error) {
         console.error("Error fetching top-selling products:", error.response?.data || error.message);
         if (error.response?.status === 401) {
-          console.log("Tokens invalid, clearing and regenerating...");
           // Clear invalid tokens
           await AsyncStorage.removeItem("accessToken");
           await AsyncStorage.removeItem("apiToken");
@@ -363,8 +361,6 @@ export default function CategoryScreen() {
     }
 
     if(apiToken && accessTokens) {
-      console.log("accessTokens-------:", accessTokens);
-      console.log("apiToken-------------:", apiToken);
       fetchTopSelling()
     }
 

@@ -25,7 +25,6 @@ export default function WelcomeScreen() {
   //     const clearLogin = async () => {
   //       try {
   //         await AsyncStorage.setItem("isLoggedIn", "false");
-  //         console.log("isLoggedIn removed successfully!");
   //       } catch (e) {
   //         console.error("Error removing isLoggedIn:", e);
   //       }
@@ -39,25 +38,20 @@ export default function WelcomeScreen() {
     const isLogin = async () => {
       try {
         const value = await AsyncStorage.getItem("isLoggedIn");
-//  console.log('isLoggedIn', value)
         // if(value) {
           
         //   navigation.navigate('MainTabs');
         // }
         const isLoggedIn = JSON.parse(value);
         if (value !== null) {
-          console.log("Stored value (raw):", isLoggedIn);
 
           // Convert string to boolean if you expect boolean
           // const isLoggedIn = value === "true";
-          // console.log("Converted boolean:", isLoggedIn);
 
           if(isLoggedIn) {
             
             setIsLogin(true);
           }
-        } else {
-          console.log("No isLoggedIn key found");
         }
       } catch (e) {
         console.error("Error removing isLoggedIn:", e);

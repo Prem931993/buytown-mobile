@@ -61,7 +61,6 @@ export default function LoginScreen({ navigation }) {
 
 
   const loginValidate = async (values) => {
-    console.log('apiToken', apiToken);
     if(apiToken) {
       try {
         const response = await axios.post(`${API_URL}`, {phone_no: values}, {
@@ -70,7 +69,6 @@ export default function LoginScreen({ navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        console.log('Login Response', response);
         if(response.data.statusCode === 200) {
           setLoginResponse(response.data);
           if(response.data.hasPassword === false) {
@@ -101,7 +99,6 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async (values) => {
     // navigation.navigate('MainTabs');
-    console.log("values", values)
     loginValidate(values.email)
     await AsyncStorage.setItem("Identity", values.email);
     // if(values.email === "9876543210") {

@@ -1,5 +1,5 @@
-- [x] Modify App.js to check for "accessToken" in the initial route logic
-- [x] Modify PINScreen.js to always navigate to 'MainTabs' after successful PIN login, removing the conditional check for user.id
-- [x] Add a "Skip to Main App" button in PINScreen.js for testing purposes
-- [x] Modify PINScreen.js to navigate to 'MainTabs' and set dummy data even if the PIN login API fails
-- [x] Test the app to ensure users can proceed to MainTabs after entering PIN or using the skip button, and that refreshing from MainTabs stays on MainTabs
+- [ ] Redesign CheckoutScreen with professional UI: Order Summary, Shipping Address, Billing Address (with GST fetch), Payment Method, Notes sections.
+- [ ] Integrate GST API fetch on billing address.
+- [ ] Add delivery_distance calculation/input.
+- [ ] Integrate POST /api/v1/user/checkout API.
+- [ ] Test form validation, API calls, UI responsiveness.

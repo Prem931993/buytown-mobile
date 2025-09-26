@@ -45,8 +45,6 @@ export default function ProductListScreen({ route, navigation }) {
             }
           }
         );
-
-        console.log("productList---", response)
         if (response.data.statusCode === 200) {
           const products = response.data.products;
 
