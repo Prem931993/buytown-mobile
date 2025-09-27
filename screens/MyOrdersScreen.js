@@ -5,9 +5,9 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { AppContext } from './../ContextAPI/ContextAPI';
@@ -109,6 +109,8 @@ export default function MyOrdersScreen({ navigation }) {
     }
   };
 
+
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -127,7 +129,6 @@ export default function MyOrdersScreen({ navigation }) {
           data={orders}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderOrderItem}
-          contentContainerStyle={styles.listContainer}
           onEndReached={loadMoreOrders}
           onEndReachedThreshold={0.5}
           ListFooterComponent={() => loadingMore ? (
@@ -137,6 +138,7 @@ export default function MyOrdersScreen({ navigation }) {
             </View>
           ) : null}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
         />
       ) : (
         <View style={styles.emptyContainer}>
@@ -153,12 +155,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    paddingTop: 10,
   },
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 15,
-    paddingTop: 30,
+    paddingTop: 15,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',

@@ -88,7 +88,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: 10,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -99,7 +98,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 15,
-    paddingTop: 30,
+    paddingTop: 15,
     paddingBottom: 15,
     backgroundColor: '#fff',
     elevation: 2,

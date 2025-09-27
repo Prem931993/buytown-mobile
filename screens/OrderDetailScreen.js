@@ -4,9 +4,9 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 export default function OrderDetailScreen({ route, navigation }) {
@@ -125,11 +125,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: 20,
   },
   header: {
     backgroundColor: '#fff',
-    padding: 20,
+    paddingHorizontal: 15,
+    paddingTop: 15,
+    paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 4,
@@ -170,7 +171,10 @@ const styles = StyleSheet.create({
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 0,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   label: {
     fontSize: 16,
@@ -188,10 +192,11 @@ const styles = StyleSheet.create({
     color: '#4CAF50',
   },
   totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    paddingTop: 10,
-    marginTop: 10,
   },
   totalLabel: {
     fontSize: 18,
@@ -207,5 +212,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     marginBottom: 5,
+    paddingVertical: 4,
   },
 });

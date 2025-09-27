@@ -376,7 +376,8 @@
 
 
 import React from 'react';
-import { SafeAreaView, FlatList, View, Text, StyleSheet, Image } from 'react-native';
+import { FlatList, View, Text, StyleSheet, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import HeaderBar from './../components/HeaderBar';
 import Categories from './../components/Categories';

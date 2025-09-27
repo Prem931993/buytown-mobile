@@ -127,12 +127,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: 10,
   },
   header: {
     backgroundColor: '#fff',
     paddingHorizontal: 15,
-    paddingTop: 30,
+    paddingTop: 15,
     paddingBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
