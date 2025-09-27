@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import {
-  View, Text, Image, TouchableOpacity,
+  View, Text, Image, TouchableOpacity, Modal, ActivityIndicator,
   StyleSheet, ScrollView, FlatList, StatusBar, Share, Alert, Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,23 +11,11 @@ import axios from 'axios';
 import Toast from 'react-native-toast-message';
 
 import { AppContext } from './../ContextAPI/ContextAPI';
+import InnerHeader from './../components/InnerHeader';
 
 const { width } = Dimensions.get('window');
 
-const product = {
-  id: '1',
-  name: 'Drywall Screw Black 50mm x 6mm',
-  image: require('./../assets/DRY WALL BLACK  (50X6).png'),
-  price: '₹120.99',
-  rating: 4.8,
-  reviews: 185,
-  description:
-    'Premium black phosphate drywall screw, 50mm long, 6mm diameter, made from hardened carbon steel with corrosion-resistant coating. Ideal for fixing plasterboard to timber or metal frames. Sharp point and deep thread ensure strong grip and easy installation with power drivers.',
-  sizes: ['50X6', '50X8', '38X6', '38X8', '32X6', '32X8'],
-};
-
 export default function ProductDetailsScreen({ route, navigation }) {
-  // const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
   const { apiToken, accessTokens, cart, onRefereshCart, decreaseQuantity } =useContext(AppContext);
   const [productDetails, setProductDetails] = useState();
 
@@ -70,7 +58,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
   }, [product]);
 
   const addToCartAPI = async(productId, quantity) => {
-      // setLoading(true);
+      setLoading(true);
       try {
         const response = await axios.post(`${API_URL_CART}`, {
           product_id: productId,
@@ -82,17 +70,14 @@ export default function ProductDetailsScreen({ route, navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        // setLoading(false);
+        setLoading(false);
         if(response.data.statusCode === 200) {
             onRefereshCart(true);
-            Toast.show({
-              type: 'success',
-              text1: 'Product added to cart!',
-              text2: `${productDetails?.name} has been added successfully.`
-            });
+            setShowSuccessModal(true);
         }
       } catch (error) {
         console.error("Error fetching add to cart:", error.response?.data || error.message);
+        setLoading(false);
         if (error.response?.status === 401) {
 
         }
@@ -112,6 +97,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   const [quantity, setQuantity] = useState(1);
   const [expandedSections, setExpandedSections] = useState({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -133,30 +120,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#F44336" />
+      <StatusBar barStyle="dark-content" backgroundColor="#000000" />
+      <InnerHeader showSearch={false} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Modern Gradient Header */}
-        <LinearGradient
-          colors={['#F44336', '#E53935', '#D32F2F']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Icon name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Product Details</Text>
-            <View style={styles.headerActions}>
-              <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
-                <Icon name="share-social" size={22} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.headerBtn}>
-                <Icon name="heart" size={22} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </LinearGradient>
+       
 
         {/* Product Image Card */}
         <View style={styles.imageCard}>
@@ -214,7 +181,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               onPress={() => toggleSection('details')}
             >
               <View style={styles.accordionTitleRow}>
-                <Icon name="information-circle" size={20} color="#F44336" />
+                <Icon name="information-circle" size={20} color="#000000" />
                 <Text style={styles.accordionTitle}>Product Details</Text>
               </View>
               <Icon
@@ -278,7 +245,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               onPress={() => toggleSection('description')}
             >
               <View style={styles.accordionTitleRow}>
-                <Icon name="document-text" size={20} color="#F44336" />
+                <Icon name="document-text" size={20} color="#000000" />
                 <Text style={styles.accordionTitle}>Description</Text>
               </View>
               <Icon
@@ -301,7 +268,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               onPress={() => toggleSection('specs')}
             >
               <View style={styles.accordionTitleRow}>
-                <Icon name="hardware-chip" size={20} color="#F44336" />
+                <Icon name="hardware-chip" size={20} color="#000000" />
                 <Text style={styles.accordionTitle}>Specifications</Text>
               </View>
               <Icon
@@ -356,15 +323,22 @@ export default function ProductDetailsScreen({ route, navigation }) {
             <TouchableOpacity
               style={styles.addToCartBtn}
               onPress={() => addToCartAPI(productDetails?.id, quantity)}
+              disabled={loading}
             >
               <LinearGradient
-                colors={['#F44336', '#D32F2F']}
+                colors={['#000000', '#333333']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.gradientBtn}
               >
-                <Icon name="bag-add" size={20} color="#fff" />
-                <Text style={styles.addToCartText}>Add to Cart</Text>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Icon name="bag-add" size={20} color="#fff" />
+                    <Text style={styles.addToCartText}>Add to Cart</Text>
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -395,13 +369,46 @@ export default function ProductDetailsScreen({ route, navigation }) {
                     <Text style={styles.relatedName} numberOfLines={2}>
                       {item.name}
                     </Text>
-                    <Text style={styles.relatedPrice}>₹{item.selling_price}</Text>
+                    <Text style={styles.relatedPrice}>₹{item.price}</Text>
                   </View>
                 </TouchableOpacity>
               )}
             />
           </View>
         )}
+
+        {/* Success Modal */}
+        <Modal
+          visible={showSuccessModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowSuccessModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Icon name="checkmark-circle" size={60} color="#4CAF50" />
+              <Text style={styles.modalTitle}>Product Added to Cart!</Text>
+              <Text style={styles.modalMessage}>{`${productDetails?.name} has been added successfully.`}</Text>
+              <View style={styles.modalButtonsContainer}>
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={() => setShowSuccessModal(false)}
+                >
+                  <Text style={styles.modalSecondaryButtonText}>Shop</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.modalPrimaryButton}
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    navigation.navigate('MainTabs', { screen: 'Cart' });
+                  }}
+                >
+                  <Text style={styles.modalPrimaryButtonText}>Cart</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -410,39 +417,11 @@ export default function ProductDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
   },
   scrollContent: {
     paddingBottom: 60,
-  },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 15,
-  },
-  header: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backBtn: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  headerBtn: {
-    padding: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor:"#ffffff"
   },
 
   // Image Section
@@ -471,7 +450,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     right: 16,
-    backgroundColor: '#F44336',
+    backgroundColor: '#000000',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -500,7 +479,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   activeThumbnailWrapper: {
-    borderColor: '#F44336',
+    borderColor: '#000000',
   },
   thumbnail: {
     width: 60,
@@ -656,10 +635,10 @@ const styles = StyleSheet.create({
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffebee',
+    backgroundColor: '#f5f5f5',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#ffcdd2',
+    borderColor: '#e0e0e0',
     padding: 4,
     alignSelf: 'flex-start',
   },
@@ -667,7 +646,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F44336',
+    backgroundColor: '#000000',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -714,6 +693,7 @@ const styles = StyleSheet.create({
   },
   relatedList: {
     paddingHorizontal: 4,
+    paddingBottom: 10,
   },
   relatedCard: {
     width: 160,
@@ -751,6 +731,74 @@ const styles = StyleSheet.create({
   relatedPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#F44336',
+    color: '#000000',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    maxWidth: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginTop: 10,
+  },
+  modalSecondaryButton: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  modalSecondaryButtonText: {
+    color: '#333',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalPrimaryButton: {
+    flex: 1,
+    backgroundColor: '#000000',
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    borderRadius: 25,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  modalPrimaryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

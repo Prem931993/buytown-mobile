@@ -1,5 +1,5 @@
-- [ ] Redesign CheckoutScreen with professional UI: Order Summary, Shipping Address, Billing Address (with GST fetch), Payment Method, Notes sections.
-- [ ] Integrate GST API fetch on billing address.
-- [ ] Add delivery_distance calculation/input.
-- [ ] Integrate POST /api/v1/user/checkout API.
-- [ ] Test form validation, API calls, UI responsiveness.
+- [ ] Update success modal in ProductDetailsScreen.js after adding to cart
+  - Replace single "OK" button with two buttons: "Continue Shopping" and "Go to Cart"
+  - "Continue Shopping" closes modal
+  - "Go to Cart" closes modal and navigates to cart screen
+  - Adjust modal styles for two buttons

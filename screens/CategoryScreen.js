@@ -439,7 +439,7 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F44336',
+    backgroundColor: '#000000',
     paddingTop:0,
   },
   row: {

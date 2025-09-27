@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/Ionicons';
 import * as Yup from 'yup';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
@@ -91,10 +92,15 @@ export default function ProfileScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#eb1f2a" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.navigate('MainTabs')} style={styles.backButton}>
+          <Icon name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.title}>Complete Your Profile</Text>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={styles.imageContainer}>
           <Image source={require('./../assets/userImage.png')} style={styles.profileImage} />
-          <Text style={styles.title}>Complete Your Profile</Text>
           <Text style={styles.subtitle}>Help us personalize your experience</Text>
         </View>
 
@@ -198,7 +204,7 @@ export default function ProfileScreen({ navigation }) {
 
                   <View style={styles.secondaryActions}>
                     <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                      <Text style={styles.skipButtonText}>Skip for Now</Text>
+                      <Text style={styles.skipButtonText}>Cancel</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.logoutButton} onPress={() => logout(navigation)}>
@@ -219,7 +225,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f5f5f5'
   },
   scrollContainer: {
     flexGrow: 1,
@@ -227,6 +233,30 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  backButton: {
+    padding: 5,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+    marginLeft: -24, // Adjust for back button width
+  },
+  imageContainer: {
     alignItems: 'center',
     marginTop: 40,
     marginBottom: 30,
@@ -238,13 +268,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 3,
     borderColor: '#ffffff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-    textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
@@ -294,7 +317,7 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   saveButton: {
-    backgroundColor: '#eb1f2a',
+    backgroundColor: '#000000',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

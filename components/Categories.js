@@ -62,7 +62,7 @@ export default function Categories() {
       {categories?.map((cat) => (
         <TouchableOpacity key={cat.id} style={styles.categoryItem}
           onPress={() =>
-            navigation.navigate('MainTabs', { screen: 'Category' })
+            navigation.navigate('ProductListScreen', {category_id: cat?.id, name: cat?.name})
           }
 
         >

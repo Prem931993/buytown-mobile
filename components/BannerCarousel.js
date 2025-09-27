@@ -65,7 +65,7 @@ export default function BannerCarousel() {
       <Carousel
         loop
         width={screenWidth * 0.9}
-        height={200}
+        height={160}
         autoPlay
         autoPlayInterval={5000}
         pagingEnabled
@@ -107,7 +107,7 @@ export default function BannerCarousel() {
 
             {item.media_type === "youtube" && (
               <YoutubePlayer
-                height={200}
+                height={160}
                 play={activeSlide === index}
                 videoId={getYouTubeId(item.file_path)}
               />
@@ -121,14 +121,14 @@ export default function BannerCarousel() {
 
 const styles = StyleSheet.create({
   carouselContainer: {
-    height: 200,
+    height: 160,
     marginTop: 30,
     paddingLeft: 20,
     paddingRight: 20,
   },
   banner: {
     width: "100%",
-    height: 200,
+    height: 160,
     borderRadius: 8,
   },
   slide: {

@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, TextInput, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ export default function CartScreen({ navigation }) {
   const [cartData, setCartData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [couponCode, setCouponCode] = useState('');
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
 
 
   useEffect(() => {
@@ -99,7 +100,7 @@ export default function CartScreen({ navigation }) {
   };
 
   const applyCoupon = () => {
-    Alert.alert('Coming Soon', 'Coupon feature is coming soon!');
+    setShowComingSoonModal(true);
   };
 
   const renderCartItem = ({ item }) => (
@@ -115,14 +116,14 @@ export default function CartScreen({ navigation }) {
             style={styles.quantityBtn}
             onPress={() => handleQuantityChange(item, -1)}
           >
-            <Icon name="remove" size={16} color="#fff" />
+            <Icon name="remove" size={16} color="#000000" />
           </TouchableOpacity>
           <Text style={styles.quantity}>{item.quantity}</Text>
           <TouchableOpacity
             style={styles.quantityBtn}
             onPress={() => handleQuantityChange(item, 1)}
           >
-            <Icon name="add" size={16} color="#fff" />
+            <Icon name="add" size={16} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -239,12 +240,15 @@ export default function CartScreen({ navigation }) {
           <Icon name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Image source={require('../assets/icon.png')} style={styles.headerLogo} />
-          <Text style={styles.headerTitle}>My Cart</Text>
+          {/* <Image source={require('../assets/icon.png')} style={styles.headerLogo} /> */}
+          <View style={styles.logoContainer}>
+            <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
+          </View>
+          {/* <Text style={styles.headerTitle}>My Cart</Text> */}
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity>
-            <Icon name="cart-outline" size={24} color="#333" />
+            <Icon name="notifications-outline" size={24} color="#333" />
           </TouchableOpacity>
         </View>
       </View>
@@ -259,6 +263,29 @@ export default function CartScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       </View>
+
+      {/* Coming Soon Modal */}
+      <Modal
+        visible={showComingSoonModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowComingSoonModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Icon name="time-outline" size={60} color="#4CAF50" />
+            <Text style={styles.modalTitle}>Coming Soon!</Text>
+            <Text style={styles.modalMessage}>Coupon feature is coming soon!</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setShowComingSoonModal(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Toast />
     </SafeAreaView>
   );
@@ -288,6 +315,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     marginRight: 8,
+  },
+  logoContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 120,
+    height: 50,
+    resizeMode: 'contain',
   },
   headerTitle: {
     fontSize: 18,
@@ -320,6 +356,7 @@ const styles = StyleSheet.create({
   shopText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   cartList: { 
     paddingHorizontal: 15, 
+    marginTop:15,
     paddingBottom: 0,
     flexGrow: 1,
     backgroundColor: "#ffffff",
@@ -357,13 +394,15 @@ const styles = StyleSheet.create({
   productPrice: { fontSize: 18, fontWeight: 'bold', color: '#f67179', marginBottom: 10 },
   quantityContainer: { flexDirection: 'row', alignItems: 'center' },
   quantityBtn: {
-    backgroundColor: '#f67179',
+    backgroundColor: '#ffffff',
     width: 35,
     height: 35,
     borderRadius: 17.5,
+    borderWidth:1,
+    borderColor:"#cccccc",
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
+    // elevation: 2,
   },
   quantity: { marginHorizontal: 20, fontSize: 18, fontWeight: 'bold', color: '#333' },
   removeBtn: { padding: 8 },
@@ -396,7 +435,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 20, fontWeight: 'bold', color: '#333' },
   totalAmount: { fontSize: 20, fontWeight: 'bold', color: '#f67179' },
   checkoutBtn: {
-    backgroundColor: '#f67179',
+    backgroundColor: '#000000',
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -458,7 +497,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   applyBtn: {
-    backgroundColor: '#f67179',
+    backgroundColor: '#000000',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -480,7 +519,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#eee',
     marginTop: 5,
-    marginBottom: 0,
+    marginBottom: 50,
   },
   termsContainer: {
     flex: 1,
@@ -502,5 +541,50 @@ const styles = StyleSheet.create({
     color: '#f67179',
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    maxWidth: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalButton: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

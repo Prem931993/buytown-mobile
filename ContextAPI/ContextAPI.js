@@ -141,7 +141,6 @@ export const AppProvider = ({ children }) => {
       // Clear all data except accessToken and Token
       const keysToRemove = keys.filter(key =>
         key !== 'accessToken' &&
-        key !== 'Token' &&
         key !== 'apiToken'
       );
 

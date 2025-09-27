@@ -1,7 +1,8 @@
 {
   "expo": {
-    "name": "buy-town",
+    "name": "BuyTown",
     "slug": "buy-town",
+    "owner": "premit.9393",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +21,15 @@
         "foregroundImage": "./assets/adaptive.png",
         "backgroundColor": "#ffffff"
       },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ"
+        }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
       "edgeToEdgeEnabled": true,
       "package": "com.cvaraj.buytown"
     },
@@ -37,7 +47,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "32fc1b05-5bba-4b2f-a772-f49aee8aa126"
+        "projectId": "2df20dca-b151-4f6a-bb7f-b63f54e10f4c"
       }
     }
   }

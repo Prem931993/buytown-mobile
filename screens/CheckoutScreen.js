@@ -1,10 +1,10 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
-
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import { Colors } from '../constants/theme';
 import axios from 'axios';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Conditionally import map components only for native platforms
 let MapView, Marker, MapViewDirections, Geolocation;
@@ -26,7 +26,7 @@ const COIMBATORE_COORDS = {
 };
 
 // Google Maps API Key - Add to your .env file as EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ';
+const GOOGLE_MAPS_APIKEY = 'AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ';
 
 export default function CheckoutScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
@@ -120,14 +120,41 @@ export default function CheckoutScreen({ navigation }) {
         setCartLoading(false);
       }
     };
+
+    const fetchProfile = async () => {
+      try {
+        const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/profile`, {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.data.statusCode === 200) {
+          const user = response.data.user;
+          setBillingAddress(prev => ({
+            ...prev,
+            first_name: user.firstname || prev.first_name,
+            last_name: user.lastname || prev.last_name,
+            gst_number: user.gstin || prev.gst_number,
+            // Add other fields if available, e.g., street: user.street || prev.street, etc.
+          }));
+        }
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+      }
+    };
+
     if (apiToken && accessTokens) {
       fetchCart();
+      fetchProfile();
     } else {
       setCartLoading(false);
     }
   }, [apiToken, accessTokens]);
 
   const requestLocationPermission = async () => {
+    if (!Geolocation) return false;
     if (Platform.OS === 'ios') {
       const auth = await Geolocation.requestAuthorization('whenInUse');
       return auth === 'granted';
@@ -275,21 +302,16 @@ export default function CheckoutScreen({ navigation }) {
     setGstLoading(true);
     try {
       const response = await axios.get(`http://sheet.gstincheck.co.in/check/4234c3e5750dcf3d630bc09ff60d8ba3/${gstNumber}`);
-      if (response.data && response.data.success) {
+      if (response.data && response.data.flag) {
         const data = response.data.data;
+        const pradr = data.pradr;
+        const addr = pradr.addr;
         setBillingAddress(prev => ({
           ...prev,
-          street: data.address || prev.street,
-          city: data.city || prev.city,
-          state: data.state || prev.state,
-          zip_code: data.pincode || prev.zip_code,
-        }));
-        setShippingAddress(prev => ({
-          ...prev,
-          street: data.address || prev.street,
-          city: data.city || prev.city,
-          state: data.state || prev.state,
-          zip_code: data.pincode || prev.zip_code,
+          street: pradr.adr || prev.street,
+          city: addr.loc || prev.city,
+          state: addr.stcd || prev.state,
+          zip_code: addr.pncd || prev.zip_code,
         }));
       } else {
         Alert.alert('GST Error', 'Invalid GST number or unable to fetch details.');
@@ -338,12 +360,8 @@ export default function CheckoutScreen({ navigation }) {
           'Content-Type': 'application/json',
         },
       });
-      if (response.data.statusCode === 200) {
-        Alert.alert(
-          'Order Placed',
-          'Your order has been placed successfully!',
-          [{ text: 'OK', onPress: () => navigation.navigate('Home') }]
-        );
+      if (response.data.statusCode === 201) {
+        navigation.navigate('OrderSuccessScreen', { order: response.data.order });
       } else {
         Alert.alert('Error', response.data.message || 'Failed to place order');
       }
@@ -366,64 +384,63 @@ export default function CheckoutScreen({ navigation }) {
     </View>
   );
 
-  const renderMapSection = () => {
-    if (Platform.OS === 'web' || !MapView) {
+  const renderMap = () => {
+    try {
+      if (!MapView) {
+        return (
+          <View style={styles.map}>
+            <Text>Map not available</Text>
+          </View>
+        );
+      }
       return (
-        <View style={styles.mapPlaceholder}>
-          <Icon name="map-outline" size={48} color="#ccc" />
-          <Text style={styles.mapPlaceholderText}>Map not available on web</Text>
+        <MapView
+          style={styles.map}
+          region={mapRegion}
+          onRegionChangeComplete={handleRegionChange}
+          onPress={handleMapPress}
+        >
+          <Marker
+            coordinate={COIMBATORE_COORDS}
+            pinColor="blue"
+            title="Coimbatore Center"
+          />
+          {destinationCoords && (
+            <Marker
+              coordinate={destinationCoords}
+              pinColor="red"
+              title="Delivery Location"
+            />
+          )}
+        </MapView>
+      );
+    } catch (error) {
+      console.error('Map render error:', error);
+      return (
+        <View style={styles.map}>
+          <Text>Map failed to load</Text>
         </View>
       );
     }
-
-    return (
-      <MapView
-        style={styles.map}
-        region={mapRegion}
-        onRegionChangeComplete={handleRegionChange}
-        onPress={handleMapPress}
-      >
-        <Marker
-          coordinate={COIMBATORE_COORDS}
-          pinColor="blue"
-          title="RS Puram Center"
-        />
-        {destinationCoords && (
-          <Marker
-            coordinate={destinationCoords}
-            pinColor="red"
-            title="Delivery Location"
-          />
-        )}
-        {destinationCoords && MapViewDirections && (
-          <MapViewDirections
-            origin={COIMBATORE_COORDS}
-            destination={destinationCoords}
-            apikey={GOOGLE_MAPS_APIKEY}
-            strokeWidth={3}
-            strokeColor="#f67179"
-            onReady={handleDirectionsReady}
-            onError={handleDirectionsError}
-          />
-        )}
-      </MapView>
-    );
   };
+
+
 
   return (
     <>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color="#000" />
-        </TouchableOpacity>
-        <View style={styles.logoContainer}>
-          <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
+      
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow-back-outline" size={24} color="#000" />
+          </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
+          </View>
+          <TouchableOpacity style={styles.notificationButton}>
+            <Icon name="notifications-outline" size={24} color="#000" />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.notificationButton}>
-          <Icon name="notifications-outline" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-      <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.title}>Checkout</Text>
 
@@ -508,7 +525,7 @@ export default function CheckoutScreen({ navigation }) {
                 {!isWithinRadius && ' (Outside 25km delivery radius)'}
               </Text>
             </View>
-            {renderMapSection()}
+            {renderMap()}
             <Text style={styles.mapInstruction}>
               Tap on the map to select your delivery location and see the route
             </Text>
@@ -615,7 +632,7 @@ export default function CheckoutScreen({ navigation }) {
 const styles = StyleSheet.create({
   header: {
     backgroundColor: '#fff',
-    paddingTop: 20,
+    paddingTop: 10,
     paddingBottom: 10,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -632,12 +649,12 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   logo: {
-    width: 100,
-    height: 40,
+    width: 120,
+    height: 50,
     resizeMode: 'contain',
   },
-  container: { flex: 1, backgroundColor: '#f8f9fa' },
-  scrollContainer: { padding: 20 },
+  container: { flex: 1, backgroundColor: '#000000' },
+  scrollContainer: { padding: 20, backgroundColor: '#f9f9f9' },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -706,7 +723,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   locationBtn: {
-    backgroundColor: '#f67179',
+    backgroundColor: '#000000',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -771,7 +788,7 @@ const styles = StyleSheet.create({
   },
   paymentText: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10 },
   placeOrderBtn: {
-    backgroundColor: '#f67179',
+    backgroundColor: '#000000',
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',

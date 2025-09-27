@@ -8,10 +8,15 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { AppProvider } from "./ContextAPI/ContextAPI";
 
 // Screens
+import AccountScreen from './screens/AccountScreen';
 import CartScreen from './screens/CartScreen';
 import CategoryScreen from './screens/CategoryScreen';
+import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import CheckoutScreen from './screens/CheckoutScreen';
 import DeliveryConfirmationScreen from './screens/DeliveryConfirmationScreen';
+import MyOrdersScreen from './screens/MyOrdersScreen';
+import OrderDetailScreen from './screens/OrderDetailScreen';
+import OrderSuccessScreen from './screens/OrderSuccessScreen';
 import DeliveryDetailScreen from './screens/DeliveryDetailScreen';
 import DeliveryListScreen from './screens/DeliveryListScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
@@ -107,10 +112,22 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeStackScreen} />
-      <Tab.Screen name="Category" component={CategoryStackScreen} />
+      <Tab.Screen
+        name="Category"
+        component={CategoryStackScreen}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Category' }],
+            });
+          },
+        })}
+      />
       <Tab.Screen name="Cart" component={CartStackScreen} />
       <Tab.Screen name="Wishlist" component={WishlistStackScreen} />
-      <Tab.Screen name="Account" component={ProfileScreen} />
+      <Tab.Screen name="Account" component={AccountScreen} />
     </Tab.Navigator>
   );
 }
@@ -167,9 +184,14 @@ export default function App() {
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+          <Stack.Screen name="AccountScreen" component={AccountScreen} />
+          <Stack.Screen name="MyOrdersScreen" component={MyOrdersScreen} />
+          <Stack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
+          <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
 
           {/* Main App Screens with Tabs */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="OrderSuccessScreen" component={OrderSuccessScreen} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />

@@ -10,12 +10,12 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
 } from 'react-native';
-  import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
-export default function InnerHeader() {
+export default function InnerHeader({ showSearch = true }) {
   const navigation = useNavigation();
   const { apiToken, accessTokens } = useContext(AppContext);
 
@@ -76,12 +76,12 @@ export default function InnerHeader() {
     navigation.navigate('ProductListScreen', { category_id: category.id, name: category.name });
   };
 
-
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Icon onPress={() => navigation.goBack()} name="arrow-back-outline" size={24} color="#000" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Icon name="arrow-back-outline" size={24} color="#000" />
+        </TouchableOpacity>
         <View style={styles.logoContainer}>
           <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
         </View>
@@ -89,60 +89,64 @@ export default function InnerHeader() {
           <Icon name="notifications-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          value={searchText}
-          onChangeText={setSearchText}
-          onFocus={() => setShowResults(searchResultsProducts.length > 0 || searchResultsCategories.length > 0)}
-          onBlur={() => setTimeout(() => setShowResults(false), 200)}
-          editable={true}
-        />
-        {loading && <ActivityIndicator size="small" color="#F44336" style={styles.loader} />}
-      </View>
-      {showResults && (
+      {showSearch && (
         <>
-          <TouchableWithoutFeedback onPress={() => setShowResults(false)}>
-            <View style={styles.overlay} />
-          </TouchableWithoutFeedback>
-          <ScrollView
-            style={styles.resultsContainer}
-            contentContainerStyle={styles.resultsContent}
-            nestedScrollEnabled={true}
-            showsVerticalScrollIndicator={true}
-          >
-            {searchResultsProducts.length > 0 && (
-              <>
-                <Text style={styles.sectionHeader}>Products</Text>
-                {searchResultsProducts.map((item) => (
-                  <TouchableOpacity
-                    key={`product-${item.id}`}
-                    style={styles.categoryItem}
-                    onPress={() => handleProductPress(item)}
-                    onStartShouldSetResponder={() => true}
-                  >
-                    <Text style={styles.categoryName}>{item.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
-            {searchResultsCategories.length > 0 && (
-              <>
-                <Text style={styles.sectionHeader}>Categories</Text>
-                {searchResultsCategories.map((item) => (
-                  <TouchableOpacity
-                    key={`category-${item.id}`}
-                    style={styles.categoryItem}
-                    onPress={() => handleCategoryPress(item)}
-                    onStartShouldSetResponder={() => true}
-                  >
-                    <Text style={styles.categoryName}>{item.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </>
-            )}
-          </ScrollView>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              value={searchText}
+              onChangeText={setSearchText}
+              onFocus={() => setShowResults(searchResultsProducts.length > 0 || searchResultsCategories.length > 0)}
+              onBlur={() => setTimeout(() => setShowResults(false), 200)}
+              editable={true}
+            />
+            {loading && <ActivityIndicator size="small" color="#F44336" style={styles.loader} />}
+          </View>
+          {showResults && (
+            <>
+              <TouchableWithoutFeedback onPress={() => setShowResults(false)}>
+                <View style={styles.overlay} />
+              </TouchableWithoutFeedback>
+              <ScrollView
+                style={styles.resultsContainer}
+                contentContainerStyle={styles.resultsContent}
+                nestedScrollEnabled={true}
+                showsVerticalScrollIndicator={true}
+              >
+                {searchResultsProducts.length > 0 && (
+                  <>
+                    <Text style={styles.sectionHeader}>Products</Text>
+                    {searchResultsProducts.map((item) => (
+                      <TouchableOpacity
+                        key={`product-${item.id}`}
+                        style={styles.categoryItem}
+                        onPress={() => handleProductPress(item)}
+                        onStartShouldSetResponder={() => true}
+                      >
+                        <Text style={styles.categoryName}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+                {searchResultsCategories.length > 0 && (
+                  <>
+                    <Text style={styles.sectionHeader}>Categories</Text>
+                    {searchResultsCategories.map((item) => (
+                      <TouchableOpacity
+                        key={`category-${item.id}`}
+                        style={styles.categoryItem}
+                        onPress={() => handleCategoryPress(item)}
+                        onStartShouldSetResponder={() => true}
+                      >
+                        <Text style={styles.categoryName}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </ScrollView>
+            </>
+          )}
         </>
       )}
     </View>
@@ -157,15 +161,23 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: '#fff',
-    paddingTop: 20,
+    paddingTop: 0,
     paddingBottom: 20,
-    paddingHorizontal:20,
+    paddingHorizontal:15,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    paddingVertical: 13,
+    paddingHorizontal: 5,
     alignItems: 'center',
   },
   logoContainer: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 10,
   },
   logo: {
     width: 120,
@@ -233,5 +245,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 19,
+  },
+  notificationBtn: {
+    paddingVertical: 13,
+    paddingHorizontal: 5,
+    alignItems: 'center',
   },
 });

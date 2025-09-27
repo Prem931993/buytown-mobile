@@ -21,17 +21,14 @@ export default function PinEntryScreen({ navigation }) {
   const { apiToken, onGenerateToken, setAccessTokenState, accessTokens  } = useContext(AppContext);
 
   const handlePinChange = (value, index) => {
-    // Only handle typing digits, not backspace (handled by onKeyPress)
-    if (value && value !== '') {
-      const updatedPin = [...pin];
-      updatedPin[index] = value;
-      setPin(updatedPin);
+    const updatedPin = [...pin];
+    updatedPin[index] = value;
+    setPin(updatedPin);
 
-      // Auto focus to next field when typing
-      if (index < 3) {
-        const nextInput = `pin${index + 1}`;
-        refs[nextInput]?.focus();
-      }
+    // Auto focus to next field when typing (only for non-empty values)
+    if (value && value !== '' && index < 3) {
+      const nextInput = `pin${index + 1}`;
+      refs[nextInput]?.focus();
     }
   };
 
@@ -138,8 +135,8 @@ export default function PinEntryScreen({ navigation }) {
                 setPin(updatedPin);
               }
             }}
-            value={digit}
-            secureTextEntry={true}
+            value={digit ? '•' : ''}
+            secureTextEntry={false}
           />
         ))}
       </View>
