@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
-  Image, TouchableOpacity, Modal, TextInput, Alert
+  Image, TouchableOpacity, Modal, TextInput, Alert, Keyboard, TouchableWithoutFeedback
 } from 'react-native';
 
 // import { Checkbox } from 'react-native-paper';
@@ -176,60 +176,62 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
         animationType="fade"
         onRequestClose={() => setRejectModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <TouchableOpacity
-              style={styles.closeIcon}
-              onPress={() => {
-                setRejectModalVisible(false);
-                setRejectionReason('');
-              }}
-            >
-              <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-            <View style={styles.modalHeader}>
-              <Ionicons name="warning" size={40} color={SECONDARY_RED} />
-              <Text style={styles.modalTitle}>Reject Delivery</Text>
-              <Text style={styles.modalSubtitle}>Please provide a reason for rejection</Text>
-            </View>
-            <View style={styles.reasonContainer}>
-              <TextInput
-                style={styles.reasonInput}
-                placeholder="Enter reason for rejection"
-                value={rejectionReason}
-                onChangeText={setRejectionReason}
-                multiline
-                numberOfLines={4}
-              />
-            </View>
-            <View style={styles.modalButtons}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.cancelBtn]}
+                style={styles.closeIcon}
                 onPress={() => {
                   setRejectModalVisible(false);
                   setRejectionReason('');
                 }}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.rejectConfirmBtn]}
-                onPress={() => {
-                  if (rejectionReason.trim() === '') {
-                    Alert.alert('Error', 'Please provide a reason for rejection.');
-                    return;
-                  }
-                  setRejectModalVisible(false);
-                  setRejectionReason('');
-                  Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
-                  navigation.goBack();
-                }}
-              >
-                <Text style={styles.rejectConfirmBtnText}>Reject</Text>
-              </TouchableOpacity>
+              <View style={styles.modalHeader}>
+                <Ionicons name="warning" size={40} color={SECONDARY_RED} />
+                <Text style={styles.modalTitle}>Reject Delivery</Text>
+                <Text style={styles.modalSubtitle}>Please provide a reason for rejection</Text>
+              </View>
+              <View style={styles.reasonContainer}>
+                <TextInput
+                  style={styles.reasonInput}
+                  placeholder="Enter reason for rejection"
+                  value={rejectionReason}
+                  onChangeText={setRejectionReason}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.cancelBtn]}
+                  onPress={() => {
+                    setRejectModalVisible(false);
+                    setRejectionReason('');
+                  }}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.rejectConfirmBtn]}
+                  onPress={() => {
+                    if (rejectionReason.trim() === '') {
+                      Alert.alert('Error', 'Please provide a reason for rejection.');
+                      return;
+                    }
+                    setRejectModalVisible(false);
+                    setRejectionReason('');
+                    Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
+                    navigation.goBack();
+                  }}
+                >
+                  <Text style={styles.rejectConfirmBtnText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
     
