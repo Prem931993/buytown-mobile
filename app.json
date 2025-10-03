@@ -14,7 +14,16 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.premkumar.buytown",
+      "config": {
+        "googleMapsApiKey": "AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show your current position on the map and calculate delivery distance.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to provide accurate delivery services."
+      }
     },
     "android": {
       "adaptiveIcon": {

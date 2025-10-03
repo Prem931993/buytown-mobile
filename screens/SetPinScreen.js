@@ -3,7 +3,6 @@ import axios from "axios";
 import { useContext, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Modal,
   ScrollView,
@@ -24,6 +23,8 @@ export default function PinEntryScreen({ navigation }) {
   const [pin, setPin] = useState(['', '', '', '']);
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { apiToken, otp, otpCode, setAccessTokenState } = useContext(AppContext);
 
@@ -46,7 +47,8 @@ export default function PinEntryScreen({ navigation }) {
     if (joinedPin.length === 4) {
       await setPinApiCall();
     } else {
-      Alert.alert('Error', 'Please enter a 4-digit PIN');
+      setErrorMessage('Please enter a 4-digit PIN');
+      setErrorModalVisible(true);
     }
   };
 
@@ -64,13 +66,22 @@ export default function PinEntryScreen({ navigation }) {
       });
       if (response.data.statusCode === 200) {
         setModalVisible(false);
-        navigation.navigate('ProfileScreen');
+        const role = await AsyncStorage.getItem("role");
+        let targetScreen = 'ProfileScreen';
+        if(role == 2) {
+          targetScreen = 'MainTabs';
+        } else if(role == 3) {
+          targetScreen = 'DeliveryListScreen';
+        }
+        navigation.navigate(targetScreen);
       } else {
-        Alert.alert('Error', 'Failed to agree to terms. Please try again.');
+        setErrorMessage('Failed to agree to terms. Please try again.');
+        setErrorModalVisible(true);
       }
     } catch (error) {
       console.error('Error agreeing terms:', error.response?.data || error.message);
-      Alert.alert('Error', 'Failed to agree to terms. Please try again.');
+      setErrorMessage('Failed to agree to terms. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setLoading(false);
     }
@@ -91,15 +102,18 @@ export default function PinEntryScreen({ navigation }) {
         await AsyncStorage.setItem("refreshToken", String(response.data.refreshToken));
         await AsyncStorage.setItem("userId", String(response.data.user.id));
         await AsyncStorage.setItem("isLoggedIn", "true");
+        await AsyncStorage.setItem("role", String(response.data.user.role_id));
         setAccessTokenState(response.data.accessToken);
         // Show terms modal after PIN is set
         setModalVisible(true);
       } else {
-        Alert.alert('Error', 'Failed to set PIN. Please try again.');
+        setErrorMessage('Failed to set PIN. Please try again.');
+        setErrorModalVisible(true);
       }
     } catch (error) {
       console.error("Error setting PIN:", error.response?.data || error.message);
-      Alert.alert('Error', 'Failed to set PIN. Please try again.');
+      setErrorMessage('Failed to set PIN. Please try again.');
+      setErrorModalVisible(true);
     }
   };
 
@@ -185,6 +199,26 @@ export default function PinEntryScreen({ navigation }) {
                 <Text style={styles.agreeButtonText}>I Agree</Text>
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={errorModalVisible}
+        onRequestClose={() => {
+          setErrorModalVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={styles.modalText}>{errorMessage}</Text>
+            <TouchableOpacity style={styles.agreeButton} onPress={() => setErrorModalVisible(false)}>
+              <Text style={styles.agreeButtonText}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

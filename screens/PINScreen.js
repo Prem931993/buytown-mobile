@@ -3,6 +3,7 @@ import axios from "axios";
 import { useContext, useEffect, useState } from 'react';
 import {
   Image,
+  Modal,
   StatusBar,
   StyleSheet,
   Text,
@@ -10,7 +11,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Toast from 'react-native-toast-message';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/login`; // replace with your token endpoint
@@ -18,7 +18,18 @@ const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/login`; // 
 export default function PinEntryScreen({ navigation }) {
   const [pin, setPin] = useState(['', '', '', '']);
   const [loginResponse, setLoginResponse] = useState()
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const { apiToken, onGenerateToken, setAccessTokenState, accessTokens  } = useContext(AppContext);
+
+  useEffect(() => {
+    const getPhoneNumber = async () => {
+      const identity = await AsyncStorage.getItem("Identity");
+      setPhoneNumber(identity || '');
+    };
+    getPhoneNumber();
+  }, []);
 
   const handlePinChange = (value, index) => {
     const updatedPin = [...pin];
@@ -31,15 +42,6 @@ export default function PinEntryScreen({ navigation }) {
       refs[nextInput]?.focus();
     }
   };
-
-   const showToast = (message, type) => {
-      Toast.show({
-        type: type, // "success" | "error" | "info"
-        text1: message,
-        visibilityTime: 3000,
-        position: "bottom", // "top" or "bottom"
-      });
-    };
 
   const refs = {};
 
@@ -64,21 +66,32 @@ export default function PinEntryScreen({ navigation }) {
           }
           await AsyncStorage.setItem("refreshToken", String(response.data.refreshToken));
           await AsyncStorage.setItem("userId", String(response.data.user.id));
+          await AsyncStorage.setItem("roleId", String(response.data.user.role_id));
           await AsyncStorage.setItem("isLoggedIn", "true");
+          const roleId = response.data.user.role_id;
+          let targetScreen = 'MainTabs';
+          if(roleId == 2) {
+            targetScreen = 'MainTabs';
+          } else if(roleId == 3) {
+            targetScreen = 'DeliveryPage';
+          }
           navigation.reset({
             index: 0,
-            routes: [{ name: 'MainTabs' }],
+            routes: [{ name: targetScreen }],
           });
         }
       } catch (error) {
         console.error("Error fetching token:", error.response?.data || error.message);
         await AsyncStorage.removeItem("apiToken");
         if(error.response?.data.statusCode == "401") {
-          showToast("Incorrect password", "error");
+          setErrorMessage('Incorrect password');
+          setErrorModalVisible(true);
         }
 
         if(error.response?.data == "Invalid or expired API token.") {
-          onGenerateToken(true)
+          await onGenerateToken(true);
+          // Retry the API call after token regeneration
+          await handleContinue();
         }
         // For testing, even if API fails, navigate to MainTabs and set dummy data
         await AsyncStorage.setItem("accessToken", "dummy");
@@ -113,7 +126,10 @@ export default function PinEntryScreen({ navigation }) {
       {/* <I
       ine" size={24} color="#ffffff" style={{ marginBottom: 10,}} /> */}
       {/* <Image source={require('./../assets/logo-brand.png')} style={{ width: 250, height: 65, resizeMode: 'contain', marginBottom: 10 }}/> */}
-      <Text style={styles.welcome}>Welcome user</Text>
+      <Text style={styles.welcome}>{phoneNumber}</Text>
+      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.notYou}>Not you?</Text>
+      </TouchableOpacity>
       <Text style={styles.instruction}>Enter the 4-digit Pin</Text>
 
       <View style={styles.pinContainer}>
@@ -160,6 +176,26 @@ export default function PinEntryScreen({ navigation }) {
       {/* <TouchableOpacity>
         <Text style={styles.passwordInstead}>Use Password login instead</Text>
       </TouchableOpacity> */}
+
+      {/* Error Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={errorModalVisible}
+        onRequestClose={() => {
+          setErrorModalVisible(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={styles.modalText}>{errorMessage}</Text>
+            <TouchableOpacity style={styles.agreeButton} onPress={() => setErrorModalVisible(false)}>
+              <Text style={styles.agreeButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -167,7 +203,8 @@ export default function PinEntryScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { padding: 20, alignItems: 'center', flex: 1, justifyContent: 'center', backgroundColor: '#eb1f2a', },
   avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
-  welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color:"#ffffff" },
+  welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, color:"#ffffff" },
+  notYou: { fontSize: 14, marginBottom: 15, color: '#ffffff', textDecorationLine: 'underline' },
   instruction: { fontSize: 16, marginBottom: 20, color: '#ffffff' },
   pinContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '80%' },
   pinInput: {
@@ -202,5 +239,40 @@ const styles = StyleSheet.create({
   skip: {
     color: '#ffffff',
     marginTop: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: '90%',
+    maxHeight: '80%',
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#333',
+  },
+  agreeButton: {
+    backgroundColor: '#eb1f2a',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  agreeButtonText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });

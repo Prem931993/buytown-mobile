@@ -1,32 +1,71 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import { Colors } from '../constants/theme';
 import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Conditionally import map components only for native platforms
-let MapView, Marker, MapViewDirections, Geolocation;
+// Conditionally import WebView only for native platforms
+let WebView;
+if (Platform.OS !== 'web') {
+  WebView = require('react-native-webview').default;
+}
+
+// Conditionally import geolocation components only for native platforms
+let Geolocation;
+let MapView, Marker, PROVIDER_GOOGLE;
+
+// Default fallback for Geolocation
+Geolocation = {
+  getCurrentPosition: (success, error) => {
+    if (error) error({ code: 1, message: 'Location not available' });
+  },
+  requestAuthorization: () => Promise.resolve('denied'),
+};
+
 if (Platform.OS !== 'web') {
   try {
+    console.log('Attempting to load map components on', Platform.OS);
     MapView = require('react-native-maps').default;
     Marker = require('react-native-maps').Marker;
-    MapViewDirections = require('react-native-maps-directions').default;
-    Geolocation = require('react-native-geolocation-service').default;
+    PROVIDER_GOOGLE = require('react-native-maps').PROVIDER_GOOGLE;
+    console.log('MapView loaded:', !!MapView);
+    const geo = require('react-native-geolocation-service');
+    if (geo && geo.default) {
+      Geolocation = geo.default;
+    } else if (geo) {
+      Geolocation = geo;
+    }
+    console.log('Geolocation loaded:', !!Geolocation);
   } catch (error) {
-    console.warn('Map components not available on this platform');
+    console.warn('Map components not available on this platform:', error.message);
   }
+}
+
+// Ensure Geolocation has the required methods
+if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
+  Geolocation = {
+    getCurrentPosition: (success, error) => {
+      if (error) error({ code: 1, message: 'Location not available' });
+    },
+    requestAuthorization: () => Promise.resolve('denied'),
+  };
 }
 
 // RS Puram, Coimbatore coordinates
 const COIMBATORE_COORDS = {
-  latitude: 11.0046,
-  longitude: 76.9572,
+  latitude: 11.010403,
+  longitude: 76.949903,
 };
 
-// Google Maps API Key - Add to your .env file as EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-const GOOGLE_MAPS_APIKEY = 'AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyDao7PSifrnHW0ly7XDAHASdb5wJneSSPQ';
+
+// PhonePe Configuration
+const PHONEPE_ENVIRONMENT = 'SANDBOX'; // Change to 'PRODUCTION' for live
+const PHONEPE_APP_ID = 'your-app-id'; // Replace with actual app ID from PhonePe dashboard
+const PHONEPE_MERCHANT_ID = 'your-merchant-id'; // Replace with actual merchant ID
+const PHONEPE_ENABLE_LOGGING = true;
 
 export default function CheckoutScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
@@ -66,6 +105,10 @@ export default function CheckoutScreen({ navigation }) {
   const [selectedDistance, setSelectedDistance] = useState(0);
   const [isWithinRadius, setIsWithinRadius] = useState(true);
   const [destinationCoords, setDestinationCoords] = useState(null);
+  const [isMapFullScreen, setIsMapFullScreen] = useState(false);
+  const [showPaymentWebView, setShowPaymentWebView] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState('');
+  const [currentOrder, setCurrentOrder] = useState(null);
 
   // Haversine formula to calculate distance between two coordinates
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -88,7 +131,7 @@ export default function CheckoutScreen({ navigation }) {
       longitude
     );
     setSelectedDistance(distance);
-    setDeliveryDistance(Math.round(distance));
+    setDeliveryDistance(distance);
     const withinRadius = distance <= 25;
     setIsWithinRadius(withinRadius);
     if (!withinRadius) {
@@ -153,118 +196,144 @@ export default function CheckoutScreen({ navigation }) {
     }
   }, [apiToken, accessTokens]);
 
+
+
   const requestLocationPermission = async () => {
-    if (!Geolocation) return false;
-    if (Platform.OS === 'ios') {
-      const auth = await Geolocation.requestAuthorization('whenInUse');
-      return auth === 'granted';
-    } else {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission',
-          message: 'This app needs access to your location to show your current position on the map.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    try {
+      if (!Geolocation) return false;
+      if (Platform.OS === 'ios') {
+        const auth = await Geolocation.requestAuthorization('whenInUse');
+        console.log('iOS Location Permission Status:', auth);
+        return auth === 'granted';
+      } else {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'This app needs access to your location to show your current position on the map.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          },
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+    } catch (error) {
+      console.error('Permission request error:', error);
+      return false;
     }
   };
 
   const getCurrentLocation = async () => {
-    if (!Geolocation) {
-      Alert.alert('Error', 'Location services not available on this platform');
-      return;
-    }
+    try {
+      if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
+        Alert.alert('Error', 'Location services not available on this platform');
+        return;
+      }
 
-    const hasPermission = await requestLocationPermission();
-    if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Location permission is required to get your current location.');
-      return;
-    }
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Denied', 'Location permission is required to get your current location.');
+        return;
+      }
 
-    Geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const newRegion = {
-          latitude,
-          longitude,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        };
-        setMapRegion(newRegion);
-        setDestinationCoords({ latitude, longitude });
-        updateDistanceAndValidation(latitude, longitude);
-        reverseGeocode(latitude, longitude);
-      },
-      (error) => {
-        console.error(error);
-        Alert.alert('Error', 'Failed to get current location');
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-    );
-  };
-
-  const handleRegionChange = (region) => {
-    // Distance calculation is handled only on location selection, not on map scroll
-  };
-
-  const handleMapPress = (event) => {
-    const { coordinate } = event.nativeEvent;
-    setDestinationCoords(coordinate);
-    updateDistanceAndValidation(coordinate.latitude, coordinate.longitude);
-    reverseGeocode(coordinate.latitude, coordinate.longitude);
-  };
-
-  const handleDirectionsReady = (result) => {
-    const distance = result.distance; // Distance in meters
-    const distanceKm = distance / 1000;
-    setSelectedDistance(distanceKm);
-    setDeliveryDistance(Math.round(distanceKm));
-    setIsWithinRadius(distanceKm <= 25);
-  };
-
-  const handleDirectionsError = (errorMessage) => {
-    console.error('Directions error:', errorMessage);
-    // Fallback to straight-line distance if directions fail
-    if (destinationCoords) {
-      updateDistanceAndValidation(destinationCoords.latitude, destinationCoords.longitude);
+      Geolocation.getCurrentPosition(
+        (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            const newRegion = {
+              latitude,
+              longitude,
+              latitudeDelta: 0.0922,
+              longitudeDelta: 0.0421,
+            };
+            setMapRegion(newRegion);
+            setDestinationCoords({ latitude, longitude });
+            updateDistanceAndValidation(latitude, longitude);
+            reverseGeocode(latitude, longitude);
+          } catch (error) {
+            console.error('Position handling error:', error);
+            Alert.alert('Error', 'Failed to process location data');
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          Alert.alert('Error', `Failed to get current location: ${error.message || 'Unknown error'}`);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    } catch (error) {
+      console.error('getCurrentLocation error:', error);
+      Alert.alert('Error', 'An unexpected error occurred while getting location');
     }
   };
+
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('WebView message received:', data);
+      if (data.type === 'mapClick') {
+        setDestinationCoords({ latitude: data.lat, longitude: data.lng });
+
+        if (data.distance) {
+          setSelectedDistance(data.distance);
+          setDeliveryDistance(data.distance);
+          setIsWithinRadius(data.distance <= 25);
+        }
+
+        if (data.addressData) {
+          console.log('Complete address data from map click:', data.addressData);
+          setShippingAddress(prev => ({
+            ...prev,
+            ...data.addressData,
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('WebView message error:', error);
+    }
+  };
+
 
   const reverseGeocode = async (latitude, longitude) => {
     try {
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_APIKEY}`
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
       );
-      if (response.data.results && response.data.results.length > 0) {
-        const addressComponents = response.data.results[0].address_components;
-        let street = '';
-        let city = '';
+      if (response.data.status === 'OK' && response.data.results.length > 0) {
+        console.log("response", response.data)
+        const result = response.data.results[0];
+        console.log('Complete address result from reverseGeocode:', result);
+        const addressComponents = result.address_components;
+
+        let locality = '';
+        let admin2 = '';
         let state = '';
-        let zip = '';
+        let zip_code = '';
         addressComponents.forEach(component => {
-          if (component.types.includes('street_number') || component.types.includes('route')) {
-            street += component.long_name + ' ';
-          }
           if (component.types.includes('locality')) {
-            city = component.long_name;
+            locality = component.long_name;
+          }
+          if (component.types.includes('administrative_area_level_2')) {
+            admin2 = component.long_name;
           }
           if (component.types.includes('administrative_area_level_1')) {
             state = component.long_name;
           }
           if (component.types.includes('postal_code')) {
-            zip = component.long_name;
+            zip_code = component.long_name;
           }
         });
+        let city = admin2 || locality;
+        let parts = result.formatted_address.split(', ');
+        let cityIndex = parts.findIndex(p => p === city);
+        let street = cityIndex > 0 ? parts.slice(0, cityIndex).join(', ') : result.formatted_address;
         setShippingAddress(prev => ({
           ...prev,
-          street: street.trim(),
+          street,
           city,
           state,
-          zip_code: zip,
+          zip_code,
         }));
       }
     } catch (error) {
@@ -275,24 +344,26 @@ export default function CheckoutScreen({ navigation }) {
   const geocodePincode = async (pincode) => {
     try {
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode}+India&key=${GOOGLE_MAPS_APIKEY}`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${pincode},India&key=${GOOGLE_MAPS_API_KEY}`
       );
-      if (response.data.results && response.data.results.length > 0) {
-        const location = response.data.results[0].geometry.location;
+      if (response.data.status === 'OK' && response.data.results.length > 0) {
+        const result = response.data.results[0];
+        const lat = result.geometry.location.lat;
+        const lng = result.geometry.location.lng;
         const newRegion = {
           ...mapRegion,
-          latitude: location.lat,
-          longitude: location.lng,
+          latitude: lat,
+          longitude: lng,
         };
         setMapRegion(newRegion);
-        setDestinationCoords({ latitude: location.lat, longitude: location.lng });
-        updateDistanceAndValidation(location.lat, location.lng);
-        reverseGeocode(location.lat, location.lng);
+        setDestinationCoords({ latitude: lat, longitude: lng });
+        updateDistanceAndValidation(lat, lng);
+        reverseGeocode(lat, lng);
       } else {
         Alert.alert('Invalid Pincode', 'Could not find location for the entered pincode.');
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error('Google geocoding error:', error);
       Alert.alert('Error', 'Failed to fetch location for pincode.');
     }
   };
@@ -331,6 +402,62 @@ export default function CheckoutScreen({ navigation }) {
     }
   };
 
+  const initiatePhonePePayment = async (orderId) => {
+    try {
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/payment/phonepe/initiate`, { orderId }, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.data.statusCode === 200) {
+        setPaymentUrl(response.data.paymentUrl);
+        setShowPaymentWebView(true);
+      } else {
+        Alert.alert('Error', 'Failed to initiate PhonePe payment');
+      }
+    } catch (error) {
+      console.error('Initiate payment error:', error);
+      Alert.alert('Error', 'Failed to initiate payment');
+    }
+  };
+
+  const checkPaymentStatus = async (orderId) => {
+    try {
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/payment/phonepe/status?orderId=${orderId}`, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      if (response.data.statusCode === 200) {
+        const status = response.data.status;
+        if (status === 'SUCCESS') {
+          navigation.navigate('OrderSuccessScreen', { order: currentOrder });
+        } else if (status === 'FAILED') {
+          Alert.alert('Payment Failed', 'Payment was not successful. Please try again.');
+        } else {
+          Alert.alert('Payment Pending', 'Payment status is pending. Please check later.');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to check payment status');
+      }
+    } catch (error) {
+      console.error('Check status error:', error);
+      Alert.alert('Error', 'Failed to check payment status');
+    }
+  };
+
+  const handlePaymentCallback = (navState) => {
+    if (navState.url.includes('success')) {
+      setShowPaymentWebView(false);
+      if (currentOrder) {
+        checkPaymentStatus(currentOrder.id);
+      }
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!shippingAddress.first_name || !shippingAddress.last_name || !shippingAddress.street || !shippingAddress.city || !shippingAddress.state || !shippingAddress.zip_code) {
       Alert.alert('Error', 'Please fill in all shipping address details');
@@ -346,24 +473,50 @@ export default function CheckoutScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const payload = {
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: paymentMethod,
-        notes: notes,
-        delivery_distance: deliveryDistance,
-      };
-      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/checkout`, payload, {
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          'X-User-Token': `Bearer ${accessTokens}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (response.data.statusCode === 201) {
-        navigation.navigate('OrderSuccessScreen', { order: response.data.order });
+      if (paymentMethod === 'phonepe') {
+        // Place the order first
+        const orderPayload = {
+          shipping_address: shippingAddress,
+          billing_address: billingAddress,
+          payment_method: paymentMethod,
+          notes: notes,
+          delivery_distance: deliveryDistance,
+        };
+        const orderResponse = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/checkout`, orderPayload, {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (orderResponse.data.statusCode === 201) {
+          const order = orderResponse.data.order;
+          setCurrentOrder(order);
+          await initiatePhonePePayment(order.id);
+        } else {
+          Alert.alert('Error', orderResponse.data.message || 'Failed to place order');
+        }
       } else {
-        Alert.alert('Error', response.data.message || 'Failed to place order');
+        // Cash on Delivery
+        const payload = {
+          shipping_address: shippingAddress,
+          billing_address: billingAddress,
+          payment_method: paymentMethod,
+          notes: notes,
+          delivery_distance: deliveryDistance,
+        };
+        const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/checkout`, payload, {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.data.statusCode === 201) {
+          navigation.navigate('OrderSuccessScreen', { order: response.data.order });
+        } else {
+          Alert.alert('Error', response.data.message || 'Failed to place order');
+        }
       }
     } catch (error) {
       console.error('Checkout error:', error);
@@ -384,44 +537,189 @@ export default function CheckoutScreen({ navigation }) {
     </View>
   );
 
-  const renderMap = () => {
-    try {
-      if (!MapView) {
-        return (
-          <View style={styles.map}>
-            <Text>Map not available</Text>
-          </View>
-        );
-      }
-      return (
-        <MapView
-          style={styles.map}
-          region={mapRegion}
-          onRegionChangeComplete={handleRegionChange}
-          onPress={handleMapPress}
-        >
-          <Marker
-            coordinate={COIMBATORE_COORDS}
-            pinColor="blue"
-            title="Coimbatore Center"
-          />
-          {destinationCoords && (
-            <Marker
-              coordinate={destinationCoords}
-              pinColor="red"
-              title="Delivery Location"
-            />
-          )}
-        </MapView>
-      );
-    } catch (error) {
-      console.error('Map render error:', error);
-      return (
-        <View style={styles.map}>
-          <Text>Map failed to load</Text>
-        </View>
-      );
+  const renderMap = (fullScreen = false) => {
+    const mapStyle = fullScreen ? styles.fullScreenMap : styles.map;
+    const mapHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Map</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry,directions"></script>
+        <style>
+          body { margin: 0; padding: 0; touch-action: manipulation; }
+          #map { height: 100vh; width: 100vw; touch-action: manipulation; }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          let map;
+          let centerMarker;
+          let destMarker;
+          let directionsService;
+          let directionsRenderer;
+
+          function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+              center: { lat: ${mapRegion.latitude}, lng: ${mapRegion.longitude} },
+              zoom: 15,
+              mapTypeId: google.maps.MapTypeId.ROADMAP
+            });
+
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+              suppressMarkers: true,
+              preserveViewport: true
+            });
+            directionsRenderer.setMap(map);
+
+            centerMarker = new google.maps.Marker({
+              position: { lat: ${COIMBATORE_COORDS.latitude}, lng: ${COIMBATORE_COORDS.longitude} },
+              map: map,
+              title: 'Coimbatore Center'
+            });
+
+            ${destinationCoords ? `
+            destMarker = new google.maps.Marker({
+              position: { lat: ${destinationCoords.latitude}, lng: ${destinationCoords.longitude} },
+              map: map,
+              title: 'Delivery Location'
+            });
+            calculateAndDisplayRoute({ lat: ${destinationCoords.latitude}, lng: ${destinationCoords.longitude} });
+            ` : ''}
+
+            map.addListener('click', function(e) {
+              const lat = e.latLng.lat();
+              const lng = e.latLng.lng();
+
+              // Clear previous destination marker and route
+              if (destMarker) {
+                destMarker.setMap(null);
+              }
+              directionsRenderer.setDirections({ routes: [] });
+
+              // Add new destination marker
+              destMarker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                title: 'Delivery Location'
+              });
+
+              // Calculate and display route
+              calculateAndDisplayRoute({ lat, lng });
+
+              // Fetch human-readable address from Google Maps API
+              fetch(\`https://maps.googleapis.com/maps/api/geocode/json?latlng=\${lat},\${lng}&key=${GOOGLE_MAPS_API_KEY}\`)
+                .then(addrRes => addrRes.json())
+                .then(addrData => {
+                  let addressData = null;
+                  if (addrData.status === 'OK' && addrData.results.length > 0) {
+                    const result = addrData.results[0];
+                    console.log("addrData", addrData.results)
+                    const components = result.address_components;
+                    let locality = '';
+                    let admin2 = '';
+                    let city = '';
+                    let state = '';
+                    let zip_code = '';
+                    components.forEach(component => {
+                      if (component.types.includes('locality')) {
+                        locality = component.long_name;
+                      }
+                      if (component.types.includes('administrative_area_level_2')) {
+                        admin2 = component.long_name;
+                      }
+                      if (component.types.includes('administrative_area_level_1')) {
+                        state = component.long_name;
+                      }
+                      if (component.types.includes('postal_code')) {
+                        zip_code = component.long_name;
+                      }
+                    });
+                    city = admin2 || locality;
+                    let parts = result.formatted_address.split(', ');
+                    let cityIndex = parts.findIndex(p => p === city);
+                    let street = cityIndex > 0 ? parts.slice(0, cityIndex).join(', ') : result.formatted_address;
+                    addressData = {
+                      street,
+                      city,
+                      state,
+                      zip_code
+                    };
+                  }
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'mapClick',
+                    lat,
+                    lng,
+                    distance: currentRouteDistance,
+                    addressData
+                  }));
+                })
+                .catch(err => {
+                  console.error('Reverse geocoding error:', err);
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'mapClick',
+                    lat,
+                    lng,
+                    distance: currentRouteDistance,
+                    addressData: null
+                  }));
+                });
+            });
+          }
+
+          let currentRouteDistance = 0;
+
+          function calculateAndDisplayRoute(destination) {
+            const request = {
+              origin: { lat: ${COIMBATORE_COORDS.latitude}, lng: ${COIMBATORE_COORDS.longitude} },
+              destination: destination,
+              travelMode: google.maps.TravelMode.DRIVING
+            };
+
+            directionsService.route(request, function(result, status) {
+              if (status === google.maps.DirectionsStatus.OK) {
+                directionsRenderer.setDirections(result);
+                const route = result.routes[0];
+                if (route && route.legs && route.legs.length > 0) {
+                  currentRouteDistance = route.legs[0].distance.value / 1000; // meters to km
+                }
+              } else {
+                console.error('Directions request failed due to ' + status);
+                // Fallback to straight line distance
+                const centerPoint = new google.maps.LatLng(${COIMBATORE_COORDS.latitude}, ${COIMBATORE_COORDS.longitude});
+                const destPoint = new google.maps.LatLng(destination.lat, destination.lng);
+                currentRouteDistance = google.maps.geometry.spherical.computeDistanceBetween(centerPoint, destPoint) / 1000;
+              }
+            });
+          }
+
+          window.onload = initMap;
+        </script>
+      </body>
+      </html>
+    `;
+    const mapContent = (
+      <WebView
+        source={{ html: mapHtml }}
+        style={mapStyle}
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+      />
+    );
+    if (fullScreen) {
+      return mapContent;
     }
+    return (
+      <View style={styles.mapContainer}>
+        {mapContent}
+        <TouchableOpacity style={styles.fullScreenButton} onPress={() => setIsMapFullScreen(true)}>
+          <Icon name="expand-outline" size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    );
   };
 
 
@@ -527,7 +825,7 @@ export default function CheckoutScreen({ navigation }) {
             </View>
             {renderMap()}
             <Text style={styles.mapInstruction}>
-              Tap on the map to select your delivery location and see the route
+              Tap on the map to select your delivery location
             </Text>
           </View>
 
@@ -595,7 +893,17 @@ export default function CheckoutScreen({ navigation }) {
                 <Text style={styles.paymentText}>Cash on Delivery</Text>
               </View>
             </TouchableOpacity>
-            {/* Add more payment options if needed */}
+            {Platform.OS !== 'web' && (
+              <TouchableOpacity
+                style={[styles.paymentOption, paymentMethod === 'phonepe' && styles.selectedPayment]}
+                onPress={() => setPaymentMethod('phonepe')}
+              >
+                <View style={styles.paymentRow}>
+                  <Icon name="phone-portrait-outline" size={24} color="#f67179" />
+                  <Text style={styles.paymentText}>PhonePe</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Notes */}
@@ -625,6 +933,32 @@ export default function CheckoutScreen({ navigation }) {
           </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
+      <Modal visible={isMapFullScreen} animationType="slide" onRequestClose={() => setIsMapFullScreen(false)}>
+        <View style={styles.fullScreenMapContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setIsMapFullScreen(false)}>
+            <Icon name="close-outline" size={30} color="#fff" />
+          </TouchableOpacity>
+          {renderMap(true)}
+        </View>
+      </Modal>
+      <Modal visible={showPaymentWebView} animationType="slide" onRequestClose={() => setShowPaymentWebView(false)}>
+        <View style={styles.paymentModalContainer}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setShowPaymentWebView(false)}>
+            <Icon name="close-outline" size={30} color="#fff" />
+          </TouchableOpacity>
+          {WebView ? (
+            <WebView
+              source={{ uri: paymentUrl }}
+              style={styles.webView}
+              onNavigationStateChange={handlePaymentCallback}
+            />
+          ) : (
+            <View style={styles.webViewPlaceholder}>
+              <Text style={styles.webViewPlaceholderText}>Payment not available on web</Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </>
   );
 }
@@ -748,7 +1082,42 @@ const styles = StyleSheet.create({
     color: '#f44336',
     fontWeight: 'bold',
   },
-  map: { height: 200, marginTop: 10, borderRadius: 8 },
+  map: { height: 300, marginTop: 10, borderRadius: 8 },
+  mapContainer: {
+    position: 'relative',
+    overflow: 'visible',
+    pointerEvents: 'box-none',
+  },
+  fullScreenButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 25,
+    padding: 12,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  fullScreenMap: {
+    flex: 1,
+  },
+  fullScreenMapContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 8,
+  },
   mapPlaceholder: {
     height: 200,
     marginTop: 10,
@@ -812,4 +1181,21 @@ const styles = StyleSheet.create({
   placeOrderText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
   loading: { marginVertical: 20 },
   emptyCartText: { fontSize: 16, color: '#666', textAlign: 'center', marginVertical: 20 },
+  paymentModalContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewPlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  webViewPlaceholderText: {
+    fontSize: 16,
+    color: '#666',
+  },
 });

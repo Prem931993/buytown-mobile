@@ -10,9 +10,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import RecentOrders from '../components/RecentOrders';
 import BannerCarousel from './../components/BannerCarousel';
@@ -59,10 +61,10 @@ export default function HomeScreen() {
         'Error fetching top-selling products:',
         error.response?.data || error.message
       );
-      if (error.response?.status === 401) {
-        // await AsyncStorage.removeItem('accessToken');
-        // await AsyncStorage.removeItem('Token');
-        // onGenerateToken(true);
+      if (error.response?.data == "Invalid or expired API token.") {
+        await onGenerateToken(true);
+        // Retry the API call after token regeneration
+        await fetchTopSelling();
       }
     } finally {
       setLoading(false);
@@ -92,10 +94,10 @@ export default function HomeScreen() {
         'Error fetching random products:',
         error.response?.data || error.message
       );
-      if (error.response?.status === 401) {
-        // await AsyncStorage.removeItem('accessToken');
-        // await AsyncStorage.removeItem('Token');
-        // onGenerateToken(true);
+      if (error.response?.data == "Invalid or expired API token.") {
+        await onGenerateToken(true);
+        // Retry the API call after token regeneration
+        await fetchRandomProducts();
       }
     } finally {
       setLoading(false);
@@ -197,12 +199,13 @@ export default function HomeScreen() {
           </View>
         <View style={styles.sectionRow}></View>
           {topSellingProducts.filter(item => item).map((item) => (
-            <View
+            <TouchableOpacity
               key={item.id}
               style={styles.flashCard}
-            onTouchEnd={() =>
+              onPress={() =>
                 navigation.navigate('ProductDetailsScreen', { product: item })
               }
+              delayPressIn={0}
             >
               <View style={styles.imageWrapper}>
                 <Image
@@ -223,7 +226,7 @@ export default function HomeScreen() {
                   {item?.selling_price}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 
@@ -233,12 +236,13 @@ export default function HomeScreen() {
         {/* Random Products */}
         <View style={styles.productList}>
           {randomProducts?.filter(item => item).map((item) => (
-            <View
+            <TouchableOpacity
               key={item.id}
               style={styles.flashCard}
-              onTouchEnd={() =>
+              onPress={() =>
                 navigation.push('ProductDetailsScreen', { product: item }) // pass full object
               }
+              delayPressIn={0}
             >
               <Image
                 source={{ uri: item?.images[0]?.path }}
@@ -251,7 +255,7 @@ export default function HomeScreen() {
                   {item?.selling_price}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       </ScrollView>

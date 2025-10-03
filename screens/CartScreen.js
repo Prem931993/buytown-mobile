@@ -5,6 +5,7 @@ import { AppContext } from './../ContextAPI/ContextAPI';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from "axios";
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CartScreen({ navigation }) {
   const { apiToken, accessTokens, cartRefresh, onRefereshCart, getTotal } = useContext(AppContext);
@@ -39,6 +40,11 @@ export default function CartScreen({ navigation }) {
           'Error fetching cart:',
           error.response?.data || error.message
         );
+        if (error.response?.data == "Invalid or expired API token.") {
+          await onRefereshCart(true);
+          // Retry the API call after token regeneration
+          await fetchCart();
+        }
       }
     };
 
@@ -64,8 +70,10 @@ export default function CartScreen({ navigation }) {
         onRefereshCart(true);
       } catch (error) {
         console.error("Error fetching add to cart:", error.response?.data || error.message);
-        if (error.response?.status === 401) {
-        
+        if (error.response?.data == "Invalid or expired API token.") {
+          await onRefereshCart(true);
+          // Retry the API call after token regeneration
+          await handleQuantityChange(item, change);
         }
       }
     } else {
@@ -94,9 +102,14 @@ export default function CartScreen({ navigation }) {
       });
       Toast.show({ type: 'success', text1: 'Item removed from cart!' });
       onRefereshCart(true);
-    } catch (error) {
-      console.error("Error removing from cart:", error.response?.data || error.message);
-    }
+      } catch (error) {
+        console.error("Error removing from cart:", error.response?.data || error.message);
+        if (error.response?.data == "Invalid or expired API token.") {
+          await onRefereshCart(true);
+          // Retry the API call after token regeneration
+          await removeFromCart(cartItemId);
+        }
+      }
   };
 
   const applyCoupon = () => {

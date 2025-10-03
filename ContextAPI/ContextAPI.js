@@ -138,10 +138,9 @@ export const AppProvider = ({ children }) => {
       // Get all keys from AsyncStorage
       const keys = await AsyncStorage.getAllKeys();
 
-      // Clear all data except accessToken and Token
+      // Clear all data except apiToken (global bearer token) and Identity (phone number)
       const keysToRemove = keys.filter(key =>
-        key !== 'accessToken' &&
-        key !== 'apiToken'
+        key !== 'apiToken' && key !== 'Identity'
       );
 
       await AsyncStorage.multiRemove(keysToRemove);
@@ -151,9 +150,10 @@ export const AppProvider = ({ children }) => {
       setOtpCode(null);
       setCart({ product_id: null, quantity: 0 });
       setCartRefresh(false);
+      setAccessTokens(null);
 
-      // Show success message
-      Alert.alert('Success', 'You have been logged out successfully');
+      // Show success message in modal instead of alert
+      setLogoutModalVisible(true);
 
       // Navigate to welcome screen
       if (navigation) {
@@ -163,6 +163,12 @@ export const AppProvider = ({ children }) => {
       console.error('Logout error:', error);
       Alert.alert('Error', 'Failed to logout. Please try again.');
     }
+  };
+
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
+  const closeLogoutModal = () => {
+    setLogoutModalVisible(false);
   };
 
   return (
@@ -185,7 +191,9 @@ export const AppProvider = ({ children }) => {
         setAccessTokenState,
         onRefereshCart,
         cartRefresh,
-        logout
+        logout,
+        logoutModalVisible,
+        closeLogoutModal
       }}
     >
       {children}

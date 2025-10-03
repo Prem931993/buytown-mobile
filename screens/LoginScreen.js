@@ -1,10 +1,11 @@
 import { Inter_400Regular, Inter_700Bold, useFonts } from '@expo-google-fonts/inter';
 import axios from "axios";
 import { Formik } from 'formik';
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext, useEffect, useState } from 'react';
 import {
   Image,
   Linking,
+  Modal,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -13,7 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Toast from 'react-native-toast-message';
+
 import * as Yup from 'yup';
 // import Config from "react-native-config";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,12 +30,24 @@ export default function LoginScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [loginResponse, setLoginResponse] = useState({})
+  const [initialPhone, setInitialPhone] = useState('');
   const { apiToken, onGenerateToken, onOTPCode } = useContext(AppContext);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
     Inter_700Bold,
   });
+
+  useEffect(() => {
+    const getIdentity = async () => {
+      const identity = await AsyncStorage.getItem("Identity");
+      if (identity) {
+        const phone = identity.replace('+91', '');
+        setInitialPhone(phone);
+      }
+    };
+    getIdentity();
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -46,18 +59,17 @@ export default function LoginScreen({ navigation }) {
   }, []);
 
   const loginValidationSchema = Yup.object().shape({
-    email: Yup.string().required('Email or Phone No is required'),
+    email: Yup.string().required('Phone Number is required'),
     // password: Yup.string().required('Password is required'),
   });
 
-  const showToast = (message, type) => {
-  Toast.show({
-    type: type, // "success" | "error" | "info"
-    text1: message,
-    visibilityTime: 3000,
-    position: "bottom", // "top" or "bottom"
-  });
-};
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
+  const showModal = (message) => {
+    setModalMessage(message);
+    setModalVisible(true);
+  };
 
 
   const loginValidate = async (values) => {
@@ -84,7 +96,7 @@ export default function LoginScreen({ navigation }) {
         await AsyncStorage.removeItem("apiToken");
 
         if(error.response?.data.error == "User not found.") {
-          showToast("Please Enter Valid Phone Number", "error");
+          showModal("Account does not exist. Please contact the administrator.");
         }
         if(error.response?.data == "Invalid or expired API token.") {
           onGenerateToken(true)
@@ -99,14 +111,14 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async (values) => {
     // navigation.navigate('MainTabs');
-    loginValidate(values.email)
-    await AsyncStorage.setItem("Identity", values.email);
+    loginValidate("+91" + values.email)
+    await AsyncStorage.setItem("Identity", "+91" + values.email);
     // if(values.email === "9876543210") {
     //   navigation.navigate('Pin');
     // }else if(values.email === "9876543211") {
     //   navigation.navigate('SetPin');
     // }
-    
+
   };
 
   if (!fontsLoaded) return null;
@@ -116,6 +128,7 @@ export default function LoginScreen({ navigation }) {
   }
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={{ flexGrow: 1 }}
       refreshControl={
@@ -132,28 +145,32 @@ export default function LoginScreen({ navigation }) {
                 <Image source={require('./../assets/logo-brand.png')} style={{ width: 250, height: 65, resizeMode: 'contain', marginBottom: 10 }}/>
             {/* </View> */}
             <Text style={styles.title}>Sign in</Text>
-            <Text style={styles.subTitle}>Enter your Email or Phone Number</Text>
+            <Text style={styles.subTitle}>Enter your Phone Number</Text>
           </View>
 
           <View style={styles.loginBox}>
             <Formik
-              initialValues={{ email: ''}}
+              initialValues={{ email: initialPhone }}
               validationSchema={loginValidationSchema}
               onSubmit={handleLogin}
+              enableReinitialize={true}
             >
               {({ handleChange, handleBlur, handleSubmit, values, errors, touched }) => (
                 <>
-                  <TextInput
-                    // style={styles.input}
-                    placeholder="Email or Phone No"
-                    onChangeText={handleChange('email')}
-                    style={[styles.input, isFocused && styles.inputFocused]}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={handleBlur('email')}
-                    value={values.email}
-                    keyboardType="phone-pad"
-                    autoCapitalize="none"
-                  />
+                  <View style={styles.phoneInputContainer}>
+                    <Text style={styles.countryCode}>+91</Text>
+                    <TextInput
+                      placeholder="Phone Number"
+                      onChangeText={handleChange('email')}
+                      style={[styles.phoneInput, isFocused && styles.inputFocused]}
+                      onFocus={() => setIsFocused(true)}
+                      onBlur={handleBlur('email')}
+                      value={values.email}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      maxLength={10}
+                    />
+                  </View>
                   {touched.email && errors.email && <Text style={styles.error}>{errors.email}</Text>}
 
                   {/* <TextInput
@@ -209,6 +226,27 @@ export default function LoginScreen({ navigation }) {
     </View>
 
     </ScrollView>
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={modalVisible}
+      onRequestClose={() => {
+        setModalVisible(false);
+      }}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalView}>
+          <Text style={styles.modalText}>{modalMessage}</Text>
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={styles.modalButtonText}>OK</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -361,5 +399,62 @@ const styles = StyleSheet.create({
   error: {
     color: 'red',
     marginBottom: 10
-  }
+  },
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e4e5e6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  countryCode: {
+    fontSize: 16,
+    paddingRight: 10,
+    color: '#21306b',
+    fontWeight: 'bold',
+  },
+  phoneInput: {
+    flex: 1,
+    paddingVertical: 18,
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalText: {
+    marginBottom: 15,
+    textAlign: 'center',
+    fontSize: 16,
+  },
+  modalButton: {
+    backgroundColor: '#eb1f2a',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 });

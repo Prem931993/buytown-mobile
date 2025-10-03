@@ -512,10 +512,10 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: width * 0.8,
+    height: height,
     backgroundColor: '#fff',
-    flex: 1,
-    padding:10,
-    justifyContent: 'space-between',
+    flexDirection: 'column',
+    padding: 10,
   },
   drawerTitle: {
     fontSize: 20,
@@ -564,9 +564,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   buttonContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
   },
   clearButton: {
     backgroundColor: '#fff',
@@ -604,6 +607,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 20,
     paddingHorizontal:5,
+    paddingBottom: 80, // to account for buttons
   },
   accordionHeader: {
     flexDirection: 'row',
