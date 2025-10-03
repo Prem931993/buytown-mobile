@@ -16,6 +16,7 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import CheckoutScreen from './screens/CheckoutScreen';
 import DeliveryConfirmationScreen from './screens/DeliveryConfirmationScreen';
 import DeliveryProfileScreen from './screens/DeliveryProfileScreen';
+import DeliverySuccessScreen from './screens/DeliverySuccessScreen';
 import MyOrdersScreen from './screens/MyOrdersScreen';
 import OrderDetailScreen from './screens/OrderDetailScreen';
 import OrderSuccessScreen from './screens/OrderSuccessScreen';
@@ -224,6 +225,7 @@ export default function App() {
           {/* Main App Screens with Tabs */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="OrderSuccessScreen" component={OrderSuccessScreen} />
+          <Stack.Screen name="DeliverySuccessScreen" component={DeliverySuccessScreen} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />

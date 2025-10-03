@@ -29,7 +29,7 @@ const tabs = ['Upcoming', 'Completed', 'Cancelled'];
 
 export default function DeliveryListScreen() {
   const navigation = useNavigation();
-  const { apiToken, accessTokens } = useContext(AppContext);
+  const { apiToken, accessTokens, logout } = useContext(AppContext);
 
   const [orders, setOrders] = useState([]);
   const [selectedTab, setSelectedTab] = useState('Upcoming');
@@ -61,6 +61,11 @@ export default function DeliveryListScreen() {
         }
       );
       if (!response.ok) {
+        if (response.status === 401) {
+          // Clear storage and regenerate tokens for 401 Unauthorized
+          logout(navigation);
+          return;
+        }
         const json = await response.json();
         if (json.error === "Invalid or expired API token." || json.error === "jwt malformed") {
           if (retryCount < 1) {
@@ -68,7 +73,9 @@ export default function DeliveryListScreen() {
             setTimeout(() => fetchDeliveryData(retryCount + 1), 1000);
             return;
           } else {
-            throw new Error('Session expired. Please login again.');
+            // Clear storage and regenerate tokens
+            logout(navigation);
+            return;
           }
         } else {
           throw new Error('Failed to fetch delivery data');
@@ -229,7 +236,7 @@ export default function DeliveryListScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#2ecc71" />
+        <ActivityIndicator size="large" color="#8BC34A" />
       </SafeAreaView>
     );
   }
@@ -278,37 +285,61 @@ export default function DeliveryListScreen() {
 
       <Modal
         visible={rejectModalVisible}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setRejectModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Reject Order</Text>
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="Enter reason for rejection"
-              value={rejectReason}
-              onChangeText={setRejectReason}
-              multiline={true}
-              numberOfLines={4}
-            />
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => {
+                setRejectModalVisible(false);
+                setRejectReason('');
+              }}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Ionicons name="warning" size={40} color="#E53935" />
+              <Text style={styles.modalTitle}>Reject Delivery</Text>
+              <Text style={styles.modalSubtitle}>Please provide a reason for rejection</Text>
+            </View>
+            <View style={styles.reasonContainer}>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Enter reason for rejection"
+                value={rejectReason}
+                onChangeText={setRejectReason}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setRejectModalVisible(false)}
-              >
-                <Text style={styles.btnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.submitBtn}
+                style={[styles.modalBtn, styles.cancelBtn]}
                 onPress={() => {
-                  // TODO: handle reject with reason
-                  console.log('Reject reason:', rejectReason);
                   setRejectModalVisible(false);
+                  setRejectReason('');
                 }}
               >
-                <Text style={styles.btnText}>Submit</Text>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.rejectConfirmBtn]}
+                onPress={() => {
+                  if (rejectReason.trim() === '') {
+                    Alert.alert('Error', 'Please provide a reason for rejection.');
+                    return;
+                  }
+                  setRejectModalVisible(false);
+                  setRejectReason('');
+                  Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
+                  // Optionally refresh the list or update the order status
+                  fetchDeliveryData();
+                }}
+              >
+                <Text style={styles.rejectConfirmBtnText}>Reject</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -361,7 +392,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eaeaea',
   },
   activeTab: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#8BC34A',
   },
   tabText: {
     fontSize: 14,
@@ -441,25 +472,28 @@ rejectBtn: {
   borderRadius: 10,
   paddingVertical: 10,
   alignItems: 'center',
+  minHeight: 60,
 },
 
 completeBtn: {
   flex: 1,
   marginLeft: 8,
   marginRight: 8,
-  backgroundColor: '#2ecc71',
+  backgroundColor: '#8BC34A',
   borderRadius: 10,
   paddingVertical: 10,
   alignItems: 'center',
+  minHeight: 60,
 },
 
 mapBtn: {
   width: 50,
-  backgroundColor: '#3498db',
+  backgroundColor: '#000000',
   borderRadius: 10,
   paddingVertical: 10,
   alignItems: 'center',
   justifyContent: 'center',
+  minHeight: 60,
 },
 
 placeholderImage: {
@@ -493,7 +527,7 @@ btnTextDark: {
     marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#8BC34A',
     borderRadius: 10,
   },
   retryButtonText: {
@@ -534,7 +568,7 @@ btnTextDark: {
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#2ecc71',
+    backgroundColor: '#8BC34A',
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 12,
@@ -576,52 +610,93 @@ btnTextDark: {
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContent: {
+  modalBox: {
+    width: '90%',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    width: '80%',
-    maxWidth: 400,
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+    position: 'relative',
+  },
+  closeIcon: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    padding: 5,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#2d2d2d',
-    marginBottom: 16,
+    color: '#000000',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
     textAlign: 'center',
+    lineHeight: 20,
+  },
+  reasonContainer: {
+    width: '100%',
+    marginBottom: 30,
   },
   reasonInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 2,
+    borderColor: '#E53935',
+    borderRadius: 12,
+    width: '100%',
+    padding: 18,
     fontSize: 16,
-    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
     textAlignVertical: 'top',
-    minHeight: 100,
+    height: 100,
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalBtn: {
+    flex: 0.48,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cancelBtn: {
-    flex: 1,
-    marginRight: 8,
-    backgroundColor: '#ccc',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
   },
-  submitBtn: {
-    flex: 1,
-    marginLeft: 8,
-    backgroundColor: '#e74c3c',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
+  cancelBtnText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rejectConfirmBtn: {
+    backgroundColor: '#E53935',
+  },
+  rejectConfirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

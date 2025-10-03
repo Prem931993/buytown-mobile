@@ -8,35 +8,41 @@ import {
 // import { Checkbox } from 'react-native-paper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-export default function DeliveryConfirmationScreen({ route, navigation }) {
-  const { order } = route.params;
+const PRIMARY_GREEN = '#8BC34A';
+const PRIMARY_BLACK = '#000000';
+const SECONDARY_RED = '#E53935';
+const SECONDARY_LIGHT_GRAY = '#F5F5F5';
 
-  // Example products (replace with real order.products)
-  const products = [
-    { id: '1', name: 'Main Door Handles', qty:1, price: 250, image: require('./../assets/product-img.jpeg') },
-    { id: '2', name: '2 Inch Screws', qty:2, price: 200, image: require('./../assets/product-img-2.jpeg') },
-    { id: '3', name: 'PVC Windows', qty:3, price: 180, image: require('./../assets/product-img.jpeg') },
-    { id: '4', name: '1Kg Glue', qty:2, price: 180, image: require('./../assets/product-img-2.jpeg') },
-  ];
+export default function DeliveryConfirmationScreen({ route, navigation }) {
+  const order = route.params?.item;
+
+  const products = order?.items ? order.items.map(item => ({
+    id: item.sku_code,
+    name: item.product_name,
+    qty: item.quantity,
+    price: parseFloat(item.price),
+    image: require('./../assets/product-img.jpeg') // Default image since not in API
+  })) : [];
 
   const [checkedItems, setCheckedItems] = useState([]);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [selectedOrder, setSelectedOrder] = useState(null);
-  
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+
 
   const [checked, setChecked] = React.useState(false);
 
   const handleComplete = (otp) => {
+    if (enteredOtp.length !== 6) {
+      Alert.alert('Invalid OTP', 'Please enter a valid 6-digit OTP.');
+      return;
+    }
     if (enteredOtp == otp) {
-      // setOrders(prev =>
-      //   prev.map(order =>
-      //     order.id === selectedOrder.id ? { ...order, status: 'Completed' } : order
-      //   )
-      // );
       setOtpModalVisible(false);
       setEnteredOtp('');
-      Alert.alert('Success', 'Order marked as completed!');
+      navigation.navigate('DeliverySuccessScreen', { order });
     } else {
       Alert.alert('Invalid OTP', 'Please enter correct OTP.');
     }
@@ -49,14 +55,18 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
     }));
     };
 
-  const totalPrice = products.reduce((acc, item) => acc + item.price, 0);
-  const receivedAmount = 500; // Replace with actual
+  const totalPrice = products.reduce((acc, item) => acc + (item.price * item.qty), 0);
+  const receivedAmount = order?.total || 0; // Use order total if available
+
+  const isConfirmEnabled = Object.values(checkedItems).some(value => value === true);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{top: 20, bottom: 20, left: 20, right: 20}}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Delivery Confirmation</Text>
-        
       </View>
 
       <FlatList
@@ -68,33 +78,36 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
             <Image source={item.image} style={styles.image} />
             <View style={styles.details}>
               <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.name}>Quantity: {item.qty}</Text>
+              <Text style={styles.qtyText}>Quantity: {item.qty}</Text>
               <Text style={styles.price}>₹{item.price}</Text>
             </View>
-            {/* <Checkbox.Item
-                label=""
-                status={checkedItems[item.id] ? 'checked' : 'unchecked'}
-                onPress={() => toggleCheckbox(item.id)}
-                /> */}
-                <TouchableOpacity onPress={() => toggleCheckbox(item.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons
-                    name={checkedItems[item.id] ? 'checkbox-outline' : 'square-outline'}
-                    size={24}
-                    color="#000"
-                  />
-                  
-                </TouchableOpacity>
+            <TouchableOpacity onPress={() => toggleCheckbox(item.id)} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons
+                name={checkedItems[item.id] ? 'checkbox-outline' : 'square-outline'}
+                size={24}
+                color="#000"
+              />
+            </TouchableOpacity>
           </View>
         )}
       />
 
       <View style={styles.summary}>
-        <Text style={styles.rowText}>Payment Status: Paid</Text>
-        <Text style={styles.rowText}>Total: ₹{totalPrice}</Text>
-        <Text style={styles.rowText}>Payment Mode: Online</Text>
+        <Text style={styles.rowText}>Payment Status: {order?.payment_status || 'Paid'}</Text>
+        <Text style={styles.rowText}>Total: ₹{order?.total_amount || 0}</Text>
+        <Text style={styles.rowText}>Payment Mode: {order?.payment_mode || 'Online'}</Text>
       </View>
 
-      <TouchableOpacity style={styles.confirmBtn} 
+      <TouchableOpacity
+        style={styles.rejectBtn}
+        onPress={() => setRejectModalVisible(true)}
+      >
+        <Text style={styles.rejectText}>REJECT</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.confirmBtn, { backgroundColor: isConfirmEnabled ? PRIMARY_GREEN : '#a5d6a7' }]}
+        disabled={!isConfirmEnabled}
         onPress={() => {
           setSelectedOrder();
           setOtpModalVisible(true);
@@ -104,124 +117,267 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
       </TouchableOpacity>
 
       <Modal
-              visible={otpModalVisible}
-              transparent
-              animationType="slide"
-              onRequestClose={() => setOtpModalVisible(false)}
+        visible={otpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOtpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => {
+                setOtpModalVisible(false);
+                setEnteredOtp('');
+              }}
             >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalBox}>
-                  <Text style={styles.modalTitle}>Enter Delivery OTP</Text>
-                  <TextInput
-                    style={styles.otpInput}
-                    placeholder="Enter OTP"
-                    keyboardType="numeric"
-                    value={enteredOtp}
-                    maxLength={6}
-                    onChangeText={setEnteredOtp}
-                  />
-                  <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={[styles.modalBtn, { backgroundColor: '#F44336' }]}
-                      onPress={() => {
-                        setOtpModalVisible(false);
-                        setEnteredOtp('');
-                      }}
-                    >
-                      <Text style={styles.btnText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.modalBtn, { backgroundColor: '#4CAF50' }]}
-                      onPress={() => handleComplete(1234)}
-                    >
-                      <Text style={styles.btnText}>Verify</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Ionicons name="shield-checkmark" size={40} color={PRIMARY_GREEN} />
+              <Text style={styles.modalTitle}>Verify Delivery</Text>
+              <Text style={styles.modalSubtitle}>Enter the 6-digit OTP sent to the customer</Text>
+            </View>
+            <View style={styles.otpContainer}>
+              <TextInput
+                style={styles.otpInput}
+                placeholder="000000"
+                keyboardType="numeric"
+                value={enteredOtp}
+                maxLength={6}
+                onChangeText={setEnteredOtp}
+                textAlign="center"
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => {
+                  setOtpModalVisible(false);
+                  setEnteredOtp('');
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.verifyBtn]}
+                onPress={() => handleComplete('123456')}
+              >
+                <Text style={styles.verifyBtnText}>Verify</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={rejectModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRejectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => {
+                setRejectModalVisible(false);
+                setRejectionReason('');
+              }}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Ionicons name="warning" size={40} color={SECONDARY_RED} />
+              <Text style={styles.modalTitle}>Reject Delivery</Text>
+              <Text style={styles.modalSubtitle}>Please provide a reason for rejection</Text>
+            </View>
+            <View style={styles.reasonContainer}>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Enter reason for rejection"
+                value={rejectionReason}
+                onChangeText={setRejectionReason}
+                multiline
+                numberOfLines={4}
+              />
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => {
+                  setRejectModalVisible(false);
+                  setRejectionReason('');
+                }}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.rejectConfirmBtn]}
+                onPress={() => {
+                  if (rejectionReason.trim() === '') {
+                    Alert.alert('Error', 'Please provide a reason for rejection.');
+                    return;
+                  }
+                  setRejectModalVisible(false);
+                  setRejectionReason('');
+                  Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
+                  navigation.goBack();
+                }}
+              >
+                <Text style={styles.rejectConfirmBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
     
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff', padding: 0, paddingBottom:50, },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  container: { flex: 1, backgroundColor: '#F2F8F5', paddingBottom: 50 },
   listWrapper: {
-    padding:20,
+    padding: 20,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
     backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
-  image: { width: 50, height: 50, borderRadius: 6, marginRight: 10 },
+  image: { width: 60, height: 60, borderRadius: 8, marginRight: 12 },
   details: { flex: 1 },
-  name: { fontWeight: '600', fontSize: 14 },
-  price: { fontSize: 13, color: '#333' },
+  name: { fontWeight: '600', fontSize: 16, color: PRIMARY_BLACK, marginBottom: 4 },
+  qtyText: { fontSize: 14, color: '#6c757d', marginBottom: 2 },
+  price: { fontSize: 16, color: PRIMARY_GREEN, fontWeight: '700' },
   summary: {
-    // marginVertical: 20,
-    borderTopWidth: 1,
-    borderColor: '#ccc',
-    padding:20,
-    // paddingTop: 10,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
   },
-  rowText: { fontSize: 16, fontWeight: 'bold', marginBottom: 5 },
+  rowText: { fontSize: 16, fontWeight: '600', color: PRIMARY_BLACK, marginBottom: 8 },
   confirmBtn: {
-    backgroundColor: '#F44336',
-    padding: 14,
+    backgroundColor: PRIMARY_GREEN,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    margin:15,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: PRIMARY_GREEN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  confirmText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  confirmText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   header: {
-    backgroundColor: '#F44336',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: PRIMARY_GREEN,
     paddingTop: 50,
-    paddingBottom: 10,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    shadowColor: PRIMARY_GREEN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  backButton: {
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    minWidth: 50,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
     color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign:"center"
+    fontWeight: '700',
+    textAlign: 'center',
+    marginLeft: -32,
   },
-
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalBox: {
-    width: '85%',
+    width: '90%',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    borderRadius: 20,
+    padding: 30,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+    position: 'relative',
+  },
+  closeIcon: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    padding: 5,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 24,
+    fontWeight: '700',
+    color: PRIMARY_BLACK,
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  otpContainer: {
+    width: '100%',
+    marginBottom: 30,
   },
   otpInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: PRIMARY_GREEN,
+    borderRadius: 12,
     width: '100%',
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 20,
+    padding: 18,
+    fontSize: 20,
     textAlign: 'center',
+    backgroundColor: '#f8f9fa',
+    letterSpacing: 8,
   },
   modalButtons: {
     flexDirection: 'row',
@@ -230,8 +386,72 @@ const styles = StyleSheet.create({
   },
   modalBtn: {
     flex: 0.48,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cancelBtn: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#dee2e6',
+  },
+  verifyBtn: {
+    backgroundColor: PRIMARY_GREEN,
+  },
+  cancelBtnText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  verifyBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  rejectBtn: {
+    backgroundColor: SECONDARY_RED,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 10,
+    shadowColor: SECONDARY_RED,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  rejectText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  reasonContainer: {
+    width: '100%',
+    marginBottom: 30,
+  },
+  reasonInput: {
+    borderWidth: 2,
+    borderColor: SECONDARY_RED,
+    borderRadius: 12,
+    width: '100%',
+    padding: 18,
+    fontSize: 16,
+    backgroundColor: '#f8f9fa',
+    textAlignVertical: 'top',
+    height: 100,
+  },
+  rejectConfirmBtn: {
+    backgroundColor: SECONDARY_RED,
+  },
+  rejectConfirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -15,17 +15,23 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Yup from 'yup';
-import { Picker } from '@react-native-picker/picker';
+import CustomDropdown from '../components/CustomDropdown';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
 const PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/dashboard/delivery-person/profile`;
 const UPDATE_PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/dashboard/delivery-person/profile`;
+
+const PRIMARY_GREEN = '#8BC34A';
+const PRIMARY_BLACK = '#000000';
+const SECONDARY_RED = '#E53935';
+const SECONDARY_LIGHT_GRAY = '#F5F5F5';
 
 const validationSchema = Yup.object().shape({
   firstname: Yup.string().required('First Name is required').min(2, 'First Name must be at least 2 characters'),
@@ -106,7 +112,7 @@ export default function DeliveryProfileScreen({ navigation }) {
         vehicle_number: vehicle.registrationNumber
       }))));
 
-      if (values.drivingLicense && (values.drivingLicense.uri || values.drivingLicense.file)) {
+      if (values.drivingLicense && (values.drivingLicense.uri && !values.drivingLicense.uri.startsWith('http')) || values.drivingLicense.file) {
         if (values.drivingLicense.file) {
           // Web: append the File object directly
           formData.append('license', values.drivingLicense.file);
@@ -114,8 +120,8 @@ export default function DeliveryProfileScreen({ navigation }) {
           // Web fallback
           formData.append('license', {
             uri: values.drivingLicense.uri,
-            name: values.drivingLicense.name || 'drivingLicense.pdf',
-            type: values.drivingLicense.mimeType || values.drivingLicense.type || 'application/pdf',
+            name: values.drivingLicense.name || 'drivingLicense.jpg',
+            type: values.drivingLicense.mimeType || values.drivingLicense.type || 'image/jpeg',
           });
         } else {
           // Mobile: read file as base64 and create blob
@@ -126,9 +132,9 @@ export default function DeliveryProfileScreen({ navigation }) {
                 encoding: FileSystem.EncodingType.Base64,
               });
               const blob = new Blob([Uint8Array.from(atob(base64), c => c.charCodeAt(0))], {
-                type: values.drivingLicense.mimeType || 'application/pdf',
+                type: values.drivingLicense.mimeType || 'image/jpeg',
               });
-              formData.append('license', blob, values.drivingLicense.name || 'drivingLicense.pdf');
+              formData.append('license', blob, values.drivingLicense.name || 'drivingLicense.jpg');
             }
           } catch (error) {
             console.error('Error reading file for upload:', error);
@@ -165,10 +171,10 @@ export default function DeliveryProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#2ecc71" />
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY_GREEN} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={{top: 20, bottom: 20, left: 20, right: 20}}>
+          <Icon name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.title}>Delivery Profile</Text>
       </View>
@@ -186,7 +192,7 @@ export default function DeliveryProfileScreen({ navigation }) {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2ecc71" />
+            <ActivityIndicator size="large" color={PRIMARY_GREEN} />
             <Text style={styles.loadingText}>Loading profile...</Text>
           </View>
         ) : (
@@ -196,7 +202,7 @@ export default function DeliveryProfileScreen({ navigation }) {
             lastname: profile?.lastname || '',
             email: profile?.email || '',
             phone: profile?.phone_no?.slice(-10) || '',
-            drivingLicense: profile?.drivingLicense || null,
+            drivingLicense: profile?.license ? { uri: profile.license } : null,
             vehicles: profile?.vehicles?.length > 0 ? profile.vehicles.map(v => ({ type: v.vehicle_id, registrationNumber: v.vehicle_number })) : [{ type: '', registrationNumber: '' }],
           }}
           validationSchema={validationSchema}
@@ -208,7 +214,7 @@ export default function DeliveryProfileScreen({ navigation }) {
               {/* Personal Information Section */}
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeader}>
-                  <MaterialIcons name="person" size={20} color="#2ecc71" />
+                  <MaterialIcons name="person" size={20} color={PRIMARY_GREEN} />
                   <Text style={styles.sectionTitle}>Personal Information</Text>
                 </View>
 
@@ -290,7 +296,7 @@ export default function DeliveryProfileScreen({ navigation }) {
                       } else {
                         try {
                           const result = await DocumentPicker.getDocumentAsync({
-                            type: '*/*',
+                            type: 'image/*',
                             copyToCacheDirectory: true,
                           });
                           if (result.type === 'success') {
@@ -304,9 +310,12 @@ export default function DeliveryProfileScreen({ navigation }) {
                     }}
                   >
                     <Text style={styles.uploadButtonText}>
-                      {values.drivingLicense && typeof values.drivingLicense === 'string' ? 'Change File' : values.drivingLicense && values.drivingLicense.name ? `Selected: ${values.drivingLicense.name}` : 'Upload PDF'}
+                      {values.drivingLicense ? 'Change Image' : 'Upload Image'}
                     </Text>
                   </TouchableOpacity>
+                  {values.drivingLicense && values.drivingLicense.uri && (
+                    <Image source={{ uri: values.drivingLicense.uri }} style={styles.previewImage} />
+                  )}
                   {Platform.OS === 'web' && (
                     <input
                       type="file"
@@ -323,7 +332,7 @@ export default function DeliveryProfileScreen({ navigation }) {
                           });
                         }
                       }}
-                      accept="application/pdf,*/*"
+                      accept="image/*"
                     />
                   )}
                   {touched.drivingLicense && errors.drivingLicense && <Text style={styles.errorText}>{errors.drivingLicense}</Text>}
@@ -333,7 +342,7 @@ export default function DeliveryProfileScreen({ navigation }) {
               {/* Vehicle Information Section */}
               <View style={styles.sectionCard}>
                 <View style={styles.sectionHeader}>
-                  <MaterialIcons name="two-wheeler" size={20} color="#2ecc71" />
+                  <MaterialIcons name="two-wheeler" size={20} color={PRIMARY_GREEN} />
                   <Text style={styles.sectionTitle}>Vehicle Information</Text>
                 </View>
 
@@ -343,17 +352,13 @@ export default function DeliveryProfileScreen({ navigation }) {
                       <Text style={styles.label}>Vehicle Type</Text>
                       <View style={[styles.inputContainer, touched.vehicles?.[index]?.type && errors.vehicles?.[index]?.type && styles.inputError]}>
                         <MaterialIcons name="directions-bike" size={20} color="#666" style={styles.inputIcon} />
-                        <Picker
+                        <CustomDropdown
                           selectedValue={vehicle.type}
                           onValueChange={(itemValue) => setFieldValue(`vehicles[${index}].type`, itemValue)}
-                          style={[styles.inputField, { paddingVertical: 0, color: vehicle.type ? '#1a1a1a' : '#999' }]}
-                          dropdownIconColor="#666"
-                        >
-                          <Picker.Item label="Select vehicle type" value="" />
-                          {vehiclesList.map((v) => (
-                            <Picker.Item key={v.id} label={v.vehicle_type} value={v.id} />
-                          ))}
-                        </Picker>
+                          items={vehiclesList.map((v) => ({ label: v.vehicle_type, value: v.id }))}
+                          placeholder="Select vehicle type"
+                          style={{ flex: 1, marginLeft: 32, borderWidth: 0, shadowOpacity: 0, elevation: 0, backgroundColor: 'transparent', paddingHorizontal: 0 }}
+                        />
                       </View>
                       {touched.vehicles?.[index]?.type && errors.vehicles?.[index]?.type && (
                         <Text style={styles.errorText}>{errors.vehicles[index].type}</Text>
@@ -407,7 +412,7 @@ export default function DeliveryProfileScreen({ navigation }) {
 
               {isSubmitting ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#2ecc71" />
+                  <ActivityIndicator size="large" color={PRIMARY_GREEN} />
                   <Text style={styles.loadingText}>Updating profile...</Text>
                 </View>
               ) : (
@@ -441,7 +446,7 @@ export default function DeliveryProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F2F8F5',
   },
   scrollContainer: {
     flexGrow: 1,
@@ -463,9 +468,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e9ecef',
   },
   backButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    minWidth: 50,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 20,
@@ -501,14 +510,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     right: 8,
-    backgroundColor: '#2ecc71',
+    backgroundColor: PRIMARY_GREEN,
     borderRadius: 16,
     width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: SECONDARY_LIGHT_GRAY,
   },
   welcomeText: {
     fontSize: 24,
@@ -625,7 +634,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   primaryButton: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: PRIMARY_GREEN,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -633,7 +642,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 16,
     elevation: 4,
-    shadowColor: '#2ecc71',
+    shadowColor: PRIMARY_GREEN,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -684,14 +693,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 12,
+    resizeMode: 'cover',
+  },
   addButton: {
-    backgroundColor: '#2ecc71',
+    backgroundColor: PRIMARY_GREEN,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 16,
     elevation: 2,
-    shadowColor: '#2ecc71',
+    shadowColor: PRIMARY_GREEN,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -702,13 +718,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   removeButton: {
-    backgroundColor: '#dc3545',
+    backgroundColor: SECONDARY_RED,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
     elevation: 2,
-    shadowColor: '#dc3545',
+    shadowColor: SECONDARY_RED,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -725,7 +741,7 @@ const styles = StyleSheet.create({
   },
   dangerButton: {
     flex: 1,
-    backgroundColor: '#dc3545',
+    backgroundColor: SECONDARY_RED,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -733,7 +749,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginLeft: 8,
     elevation: 2,
-    shadowColor: '#dc3545',
+    shadowColor: SECONDARY_RED,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
