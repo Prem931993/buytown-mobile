@@ -37,6 +37,7 @@ import SubCategoryScreen from './screens/SubCategoryScreen';
 import TermsScreen from './screens/TermsScreen';
 import VariantScreen from './screens/VariantScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
+import MyWishlistScreen from './screens/MyWishlistScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -79,7 +80,7 @@ function CartStackScreen() {
 function WishlistStackScreen() {
   return (
     <WishlistStack.Navigator screenOptions={{ headerShown: false }}>
-      <WishlistStack.Screen name="WishlistMain" component={NotificationScreen} />
+      <WishlistStack.Screen name="WishlistMain" component={MyWishlistScreen} />
     </WishlistStack.Navigator>
   );
 }

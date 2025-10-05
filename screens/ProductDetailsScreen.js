@@ -18,11 +18,13 @@ const { width } = Dimensions.get('window');
 export default function ProductDetailsScreen({ route, navigation }) {
   const { apiToken, accessTokens, cart, onRefereshCart, decreaseQuantity } =useContext(AppContext);
   const [productDetails, setProductDetails] = useState();
+  const [isInWishlist, setIsInWishlist] = useState(false);
 
   const { product } = route.params;
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/${product.id}`;
   const API_URL_CART = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/cart/add`;
+
 
   useEffect(()=> {
     const fetchSingleProduct = async () => {
@@ -40,6 +42,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
       );
       if (response.data.statusCode === 200) {
         setProductDetails(response.data.product)
+        setIsInWishlist(response.data.product.is_wishlisted || false)
       }
     } catch (error) {
       console.error(
@@ -47,7 +50,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
         error.response?.data || error.message
       );
       if (error.response?.status === 401) {
-        
+
       }
     } finally {
       // setLoading(false);
@@ -56,6 +59,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   fetchSingleProduct()
   }, [product]);
+
+
 
   const addToCartAPI = async(productId, quantity) => {
       setLoading(true);
@@ -70,20 +75,38 @@ export default function ProductDetailsScreen({ route, navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        setLoading(false);
-        if(response.data.statusCode === 200) {
-            onRefereshCart(true);
-            setShowSuccessModal(true);
-        }
-      } catch (error) {
-        console.error("Error fetching add to cart:", error.response?.data || error.message);
-        setLoading(false);
-        if (error.response?.status === 401) {
+          setLoading(false);
+          if(response.data.statusCode === 200) {
+              onRefereshCart(true);
+              setShowSuccessModal(true);
+          }
+        } catch (error) {
+          console.error("Error fetching add to cart:", error.response?.data || error.message);
+          setLoading(false);
+          if (error.response?.status === 400) {
+            Alert.alert('Error', error.response?.data?.message || 'Failed to add item to cart');
+          } else if (error.response?.status === 401) {
+
+          }
 
         }
-
-      }
     }
+
+  const toggleWishlist = async () => {
+    try {
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/wishlist/${productDetails?.id}/toggle`, {}, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      // Update local wishlist status
+      setIsInWishlist(!isInWishlist);
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      Alert.alert('Error', `Failed to update wishlist: ${error.response?.data?.message || error.message}`);
+    }
+  };
 
   // useEffect(()=> {
   //   if(cart) {
@@ -165,12 +188,17 @@ export default function ProductDetailsScreen({ route, navigation }) {
         {/* Product Info Card */}
         <View style={styles.infoCard}>
           <View style={styles.productHeader}>
-            <Text style={styles.productName}>{productDetails?.name}</Text>
-            <View style={styles.ratingContainer}>
-              <Icon name="star" size={16} color="#fbbf24" />
-              <Text style={styles.rating}>4.8</Text>
-              <Text style={styles.reviewCount}>(185 reviews)</Text>
+            <View style={styles.productTitleRow}>
+              <Text style={styles.productName}>{productDetails?.name}</Text>
+              <TouchableOpacity onPress={toggleWishlist} style={styles.wishlistButton}>
+                <Icon
+                  name={isInWishlist ? "heart" : "heart-outline"}
+                  size={24}
+                  color={isInWishlist ? "#F44336" : "#666"}
+                />
+              </TouchableOpacity>
             </View>
+
           </View>
 
           {/* Accordion Sections */}
@@ -503,12 +531,22 @@ const styles = StyleSheet.create({
   productHeader: {
     marginBottom: 20,
   },
+  productTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
   productName: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1f2937',
-    marginBottom: 8,
     lineHeight: 32,
+    flex: 1,
+    marginRight: 16,
+  },
+  wishlistButton: {
+    padding: 8,
   },
   ratingContainer: {
     flexDirection: 'row',

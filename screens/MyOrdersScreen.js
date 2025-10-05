@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { AppContext } from './../ContextAPI/ContextAPI';
+import InnerHeader from './../components/InnerHeader';
 
 export default function MyOrdersScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
@@ -113,12 +114,7 @@ export default function MyOrdersScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My Orders</Text>
-      </View>
+      <InnerHeader showSearch={false} />
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#F44336" />
@@ -155,28 +151,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,

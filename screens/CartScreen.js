@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from "axios";
 import Toast from 'react-native-toast-message';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import InnerHeader from './../components/InnerHeader';
 
 export default function CartScreen({ navigation }) {
   const { apiToken, accessTokens, cartRefresh, onRefereshCart, getTotal } = useContext(AppContext);
@@ -16,6 +17,8 @@ export default function CartScreen({ navigation }) {
   const [summary, setSummary] = useState(null);
   const [couponCode, setCouponCode] = useState('');
   const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+  const [clearCartModalVisible, setClearCartModalVisible] = useState(false);
+  const [clearingCart, setClearingCart] = useState(false);
 
 
   useEffect(() => {
@@ -114,6 +117,39 @@ export default function CartScreen({ navigation }) {
 
   const applyCoupon = () => {
     setShowComingSoonModal(true);
+  };
+
+  const clearCart = () => {
+    setClearCartModalVisible(true);
+  };
+
+  const confirmClearCart = async () => {
+    setClearingCart(true);
+    try {
+      for (const item of cartData) {
+        await axios.delete(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/cart/clear`, {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            cart_item_id: item.cart_item_id
+          }
+        });
+      }
+      Toast.show({ type: 'success', text1: 'Cart cleared successfully!' });
+      onRefereshCart(true);
+    } catch (error) {
+      console.error("Error clearing cart:", error.response?.data || error.message);
+      Toast.show({ type: 'error', text1: 'Failed to clear cart. Please try again.' });
+      if (error.response?.data == "Invalid or expired API token.") {
+        await onRefereshCart(true);
+      }
+    } finally {
+      setClearingCart(false);
+      setClearCartModalVisible(false);
+    }
   };
 
   const renderCartItem = ({ item }) => (
@@ -245,26 +281,16 @@ export default function CartScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.headerContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          {/* <Image source={require('../assets/icon.png')} style={styles.headerLogo} /> */}
-          <View style={styles.logoContainer}>
-            <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
-          </View>
-          {/* <Text style={styles.headerTitle}>My Cart</Text> */}
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity>
-            <Icon name="notifications-outline" size={24} color="#333" />
+      <InnerHeader showSearch={false} />
+      {cartData.length > 0 && (
+        <View style={styles.cartHeader}>
+          <Text style={styles.cartTitle}>Your Cart ({cartData.length})</Text>
+          <TouchableOpacity style={styles.clearCartBtn} onPress={clearCart}>
+            <Icon name="trash-outline" size={20} color="#f44336" />
+            <Text style={styles.clearCartText}>Clear Cart</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      )}
       <View style={{ flex: 1 }}>
         <FlatList
           data={cartData}
@@ -299,6 +325,42 @@ export default function CartScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* Clear Cart Confirmation Modal */}
+      <Modal
+        visible={clearCartModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setClearCartModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Icon name="trash-outline" size={60} color="#f44336" />
+            <Text style={styles.modalTitle}>Clear Cart</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to clear all items from your cart?</Text>
+            {clearingCart ? (
+              <Text style={{ marginVertical: 20, fontSize: 16, color: '#666' }}>Clearing cart...</Text>
+            ) : (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
+                <TouchableOpacity
+                  style={[styles.cancelModalButton, { flex: 1, marginRight: 10 }]}
+                  onPress={() => setClearCartModalVisible(false)}
+                  disabled={clearingCart}
+                >
+                  <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.clearModalButton, { flex: 1, marginLeft: 10 }]}
+                  onPress={confirmClearCart}
+                  disabled={clearingCart}
+                >
+                  <Text style={styles.clearModalButtonText}>Clear All</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <Toast />
     </SafeAreaView>
   );
@@ -306,46 +368,6 @@ export default function CartScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingBottom: 10,
-    paddingHorizontal: 15,
-    backgroundColor: '#fff',
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'center',
-  },
-  headerLogo: {
-    width: 32,
-    height: 32,
-    marginRight: 8,
-  },
-  logoContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 120,
-    height: 50,
-    resizeMode: 'contain',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  headerRight: {
-    padding: 5,
-  },
   emptyCart: {
     flex: 1,
     justifyContent: 'center',
@@ -596,6 +618,61 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  cartTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  clearCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffebee',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ffcdd2',
+  },
+  clearCartText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#f44336',
+    marginLeft: 5,
+  },
+  cancelModalButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelModalButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  clearModalButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  clearModalButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

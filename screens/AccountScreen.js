@@ -11,6 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { useContext } from 'react';
 import { AppContext } from './../ContextAPI/ContextAPI';
+import InnerHeader from './../components/InnerHeader';
 
 export default function AccountScreen({ navigation }) {
   const { logout } = useContext(AppContext);
@@ -42,12 +43,7 @@ export default function AccountScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>My Account</Text>
-      </View>
+      <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.subtitleContainer}>
           <Text style={styles.subtitle}>Manage your account settings</Text>

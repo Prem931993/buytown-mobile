@@ -17,12 +17,6 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
     };
   }
-  if (moduleName === 'react-native-geolocation-service') {
-    return {
-      filePath: require.resolve('./mocks/react-native-geolocation-service.js'),
-      type: 'sourceFile',
-    };
-  }
 
   // Fallback to default resolver
   return context.resolveRequest(context, moduleName, platform);

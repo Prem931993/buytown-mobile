@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, memo, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -12,81 +12,43 @@ import {
   ActivityIndicator,
   ScrollView,
   TouchableWithoutFeedback,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
+import * as Location from 'expo-location';
 import { AppContext } from './../ContextAPI/ContextAPI';
 
-const notifications = [
-  {
-    id: '1',
-    title: '🆕 New Arrivals Alert!',
-    date: 'Aug 7, 2025',
-    description: 'Discover the latest in premium handles, kitchen cutlery, and more. Stock up today!',
-  },
-  {
-    id: '2',
-    title: '🛒 Your Order Is Still Pending',
-    date: 'Aug 6, 2025',
-    description: 'Finalize your purchase to avoid delays. Your perfect interiors are just a click away!',
-  },
-  {
-    id: '3',
-    title: '🔧 Complete Your Orders',
-    date: 'Aug 5, 2025',
-    description: 'You still have items waiting to be processed. Let’s get your workspace moving!',
-  },
-  {
-    id: '4',
-    title: '📦 Back in Stock!',
-    date: 'Aug 4, 2025',
-    description: 'Popular plywood and accessories are back—grab them before they’re gone again!',
-  },
-  {
-    id: '5',
-    title: '🧰 Need Screws or Hinges?',
-    date: 'Aug 3, 2025',
-    description: 'New functional designs just landed in our hardware section. Upgrade today!',
-  },
-  {
-    id: '6',
-    title: '💡 Stylish Add-ons Available',
-    date: 'Aug 2, 2025',
-    description: 'Elegant kitchen cutlery and cabinet handles now in stock. Add the finishing touch.',
-  },
-  {
-    id: '7',
-    title: '⏳ Don’t Miss Out!',
-    date: 'Aug 1, 2025',
-    description: 'Items in your cart may run out soon. Complete your order to secure your picks.',
-  },
-  {
-    id: '8',
-    title: '✅ Order Completed!',
-    date: 'Jul 31, 2025',
-    description: 'Your kitchen hardware order has been successfully delivered. Thank you for shopping with us!',
-  },
-  {
-    id: '9',
-    title: '🎉 All Done!',
-    date: 'Jul 30, 2025',
-    description: 'Your recent plywood and accessories order is complete. We hope you loved it!',
-  },
-  {
-    id: '10',
-    title: '❌ Order Canceled',
-    date: 'Jul 29, 2025',
-    description: 'Your recent order was canceled. Need help reordering? We’re here to assist.',
-  },
-  {
-    id: '11',
-    title: '⚠️ Canceled Due to Payment Issue',
-    date: 'Jul 28, 2025',
-    description: 'Your order couldn’t be processed. Please check your payment method and try again.',
-  },
-];
-
+const NotificationItem = memo(({ item, onMarkAsRead, onDelete }) => {
+  return (
+    <View style={styles.notificationItem}>
+      <TouchableOpacity style={styles.notificationContent} onPress={() => onMarkAsRead(item.id)}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>V.</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={styles.notificationHeader}>
+            <Text style={styles.notificationTitle}>{item.title}</Text>
+            <Text style={styles.notificationDate}>{item.date}</Text>
+          </View>
+          <Text style={styles.notificationDescription}>{item.description}</Text>
+        </View>
+        {!item.read && <View style={styles.dot} />}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.deleteIcon} onPress={() => Alert.alert(
+        "Delete Notification",
+        "Are you sure you want to delete this notification?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "OK", onPress: () => onDelete(item.id) },
+        ]
+      )}>
+        <Icon name="trash-outline" size={20} color="#eb1f2a" />
+      </TouchableOpacity>
+    </View>
+  );
+});
 
 export default function HeaderBar() {
   const navigation = useNavigation();
@@ -98,12 +60,22 @@ export default function HeaderBar() {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState('Use current location');
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [notificationPage, setNotificationPage] = useState(1);
+  const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
+  const [hasMoreNotifications, setHasMoreNotifications] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
 
   useEffect(() => {
     if (searchText.length > 2) {
       const timeoutId = setTimeout(() => {
         searchAPI();
-      }, 500);
+      }, 3000);
       return () => clearTimeout(timeoutId);
     } else {
       setSearchResultsProducts([]);
@@ -111,6 +83,197 @@ export default function HeaderBar() {
       setShowResults(false);
     }
   }, [searchText]);
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, []);
+
+  useEffect(() => {
+    if (modalVisible) {
+      setNotificationPage(1);
+      fetchNotifications(1, true);
+    }
+  }, [modalVisible]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      const interval = setInterval(() => {
+        setPlaceholderIndex((prevIndex) => (prevIndex + 1) % categories.length);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [categories]);
+
+  const fetchNotifications = async (page = 1, isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setLoadingNotifications(true);
+      } else if (page > 1) {
+        setLoadingMoreNotifications(true);
+      } else {
+        setLoadingNotifications(true);
+      }
+
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications?page=${page}&limit=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        // Map API response to component state format
+        const notificationsData = response.data.data?.notifications || response.data.notifications || [];
+        const mappedNotifications = notificationsData.map((notif) => ({
+          id: notif.id,
+          title: notif.title,
+          description: notif.message,
+          date: new Date(notif.created_at).toLocaleString(),
+          read: notif.is_read,
+        }));
+
+        if (isRefresh || page === 1) {
+          setNotifications(mappedNotifications);
+        } else {
+          setNotifications(prev => [...prev, ...mappedNotifications]);
+        }
+
+        setNotificationPage(page);
+        setHasMoreNotifications(response.data.data?.pagination?.has_next_page || false);
+      }
+    } catch (error) {
+      console.error('Fetch notifications error:', error);
+    } finally {
+      setLoadingNotifications(false);
+      setLoadingMoreNotifications(false);
+    }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications/unread-count`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      if (response.data.success) {
+        const unreadCount = response.data.data?.unreadCount || response.data.unreadCount || 0;
+        setUnreadCount(unreadCount);
+      }
+    } catch (error) {
+      console.error('Fetch unread count error:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/categories`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      if (response.data.statusCode === 200) {
+        setCategories(response.data.categories || []);
+      }
+    } catch (error) {
+      console.error('Fetch categories error:', error);
+    }
+  };
+
+  const markNotificationAsRead = useCallback(async (notificationId) => {
+    try {
+      await axios.put(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      // Update local state to mark notification as read
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notif) =>
+          notif.id === notificationId ? { ...notif, read: true } : notif
+        )
+      );
+      // Update unread count
+      setUnreadCount((prevCount) => (prevCount > 0 ? prevCount - 1 : 0));
+    } catch (error) {
+      console.error('Mark notification as read error:', error);
+    }
+  }, [apiToken, accessTokens]);
+
+  const markAllAsRead = useCallback(async () => {
+    try {
+      await axios.put(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications/mark-all-read`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      // Update local state to mark all as read
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notif) => ({ ...notif, read: true }))
+      );
+      // Reset unread count
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Mark all as read error:', error);
+    }
+  }, [apiToken, accessTokens]);
+
+  const deleteNotification = useCallback(async (notificationId) => {
+    try {
+      await axios.delete(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications/${notificationId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+          },
+        }
+      );
+      // Update local state to remove the notification
+      setNotifications((prevNotifications) =>
+        prevNotifications.filter((notif) => notif.id !== notificationId)
+      );
+      // Update unread count if it was unread
+      const deletedNotif = notifications.find((n) => n.id === notificationId);
+      if (deletedNotif && !deletedNotif.read) {
+        setUnreadCount((prevCount) => (prevCount > 0 ? prevCount - 1 : 0));
+      }
+    } catch (error) {
+      console.error('Delete notification error:', error);
+    }
+  }, [apiToken, accessTokens, notifications]);
+
+  const [onEndReachedCalledDuringMomentum, setOnEndReachedCalledDuringMomentum] = React.useState(false);
+
+  const loadMoreNotifications = () => {
+    if (hasMoreNotifications && !loadingMoreNotifications) {
+      fetchNotifications(notificationPage + 1, false);
+    }
+  };
 
   const searchAPI = async () => {
     setLoading(true);
@@ -150,21 +313,73 @@ export default function HeaderBar() {
     navigation.navigate('ProductListScreen', { category_id: category.id, name: category.name });
   };
 
+  const getCurrentLocation = async () => {
+    setLocationLoading(true);
+    // Temporarily show "Use current location" to indicate updating
+    setCurrentLocation('Use current location');
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Location permission is required to use this feature.');
+        setLocationLoading(false);
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = location.coords;
+
+      let address = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (address.length > 0) {
+        const { city, region, postalCode } = address[0];
+        const locationString = `${city}, ${region} ${postalCode}`;
+        setCurrentLocation(locationString);
+      } else {
+        Alert.alert('Error', 'Unable to fetch address for your location.');
+      }
+    } catch (error) {
+      console.error('Location error:', error);
+      Alert.alert('Error', 'Failed to get current location. Please try again.');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
   const renderNotification = ({ item }) => (
     <View style={styles.notificationItem}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>V.</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={styles.notificationHeader}>
-          <Text style={styles.notificationTitle}>{item.title}</Text>
-          <Text style={styles.notificationDate}>{item.date}</Text>
+      <TouchableOpacity style={styles.notificationContent} onPress={() => markNotificationAsRead(item.id)}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>V.</Text>
         </View>
-        <Text style={styles.notificationDescription}>{item.description}</Text>
-      </View>
-      <View style={styles.dot} />
+        <View style={{ flex: 1 }}>
+          <View style={styles.notificationHeader}>
+            <Text style={styles.notificationTitle}>{item.title}</Text>
+            <Text style={styles.notificationDate}>{item.date}</Text>
+          </View>
+          <Text style={styles.notificationDescription}>{item.description}</Text>
+        </View>
+        {!item.read && <View style={styles.dot} />}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.deleteIcon} onPress={() => Alert.alert(
+        "Delete Notification",
+        "Are you sure you want to delete this notification?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "OK", onPress: () => deleteNotification(item.id) },
+        ]
+      )}>
+        <Icon name="trash-outline" size={20} color="#eb1f2a" />
+      </TouchableOpacity>
     </View>
   );
+
+  const renderFooter = () => {
+    if (!loadingMoreNotifications) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#eb1f2a" />
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -177,31 +392,40 @@ export default function HeaderBar() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <TouchableOpacity onPress={() => setModalVisible(true)}>
+        <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.notificationIconContainer}>
           <Icon name="notifications-outline" size={24} color="#000000" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Icon name="search-outline" size={20} color="#999" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products"
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={setSearchText}
-          onFocus={() => setShowResults(true)}
-          editable={true}
-        />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={`Search '${categories[placeholderIndex]?.name?.toLowerCase()}'`}
+        placeholderTextColor="#999"
+        value={searchText}
+        onChangeText={setSearchText}
+        onFocus={() => setShowResults(true)}
+        editable={true}
+      />
         {loading && <ActivityIndicator size="small" color="#F44336" style={styles.loader} />}
       </View>
 
       {/* Location Row */}
-      <View style={styles.locationRow}>
+      <TouchableOpacity style={styles.locationRow} onPress={getCurrentLocation} disabled={locationLoading}>
         <Icon name="location-outline" size={18} color="#000000" style={{ marginRight: 5 }} />
-        <Text style={styles.locationText}>Coimbatore, Tamil Nadu</Text>
-      </View>
+        {locationLoading ? (
+          <ActivityIndicator size="small" color="#eb1f2a" />
+        ) : (
+          <Text style={styles.locationText}>{currentLocation}</Text>
+        )}
+      </TouchableOpacity>
 
       {showResults && (
         <>
@@ -259,16 +483,47 @@ export default function HeaderBar() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Notifications</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Icon name="close" size={24} color="#000" />
-              </TouchableOpacity>
+              <View style={styles.modalHeaderRight}>
+                <TouchableOpacity onPress={() => Alert.alert(
+                  "Mark All as Read",
+                  "Are you sure you want to mark all notifications as read?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "OK", onPress: markAllAsRead },
+                  ]
+                )} style={styles.markAllButton}>
+                  <Text style={styles.markAllText}>Mark All Read</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Icon name="close" size={24} color="#000" />
+                </TouchableOpacity>
+              </View>
             </View>
+            {loadingNotifications ? (
+              <ActivityIndicator size="large" color="#eb1f2a" style={{ marginTop: 20 }} />
+            ) : (
+              <View style={{ flex: 1 }}>
             <FlatList
               data={notifications}
               renderItem={renderNotification}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={{ paddingBottom: 10 }}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderFooter}
+              scrollEventThrottle={400}
+              onMomentumScrollBegin={() => {
+                // Reset onEndReached flag to allow multiple calls
+                setOnEndReachedCalledDuringMomentum(false);
+              }}
+              onEndReached={() => {
+                if (!onEndReachedCalledDuringMomentum) {
+                  loadMoreNotifications();
+                  setOnEndReachedCalledDuringMomentum(true);
+                }
+              }}
             />
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -376,7 +631,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopRightRadius: 20,
     borderTopLeftRadius: 20,
-    maxHeight: '80%',
+    height: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -386,6 +641,27 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
+  },
+  modalHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  markAllButton: {
+    marginRight: 10,
+  },
+  markAllText: {
+    fontSize: 14,
+    color: '#eb1f2a',
+    fontWeight: '500',
+  },
+  notificationContent: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  deleteIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 10,
   },
   notificationItem: {
     backgroundColor: '#f8f8f8',
@@ -432,5 +708,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#00AEEF',
     alignSelf: 'center',
     marginLeft: 5,
+  },
+  notificationIconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    backgroundColor: '#eb1f2a',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
 });

@@ -43,7 +43,7 @@ export default function VariantScreen() {
 
   return (
     <>
-    <InnerHeader />
+    <InnerHeader showSearch={false} />
     <SafeAreaView style={styles.container}>
         
       <Text style={styles.title}>{subCategory2} - Brands</Text>

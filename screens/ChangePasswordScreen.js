@@ -13,6 +13,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { AppContext } from './../ContextAPI/ContextAPI';
+import InnerHeader from './../components/InnerHeader';
 
 export default function ChangePasswordScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
@@ -68,12 +69,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Change Password</Text>
-      </View>
+      <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.form}>
           <View style={styles.inputContainer}>
@@ -127,27 +123,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
   },
   scrollContainer: {
     flexGrow: 1,

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Yup from 'yup';
 import { AppContext } from './../ContextAPI/ContextAPI';
+import InnerHeader from './../components/InnerHeader';
 
 const PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/profile`;
 const UPDATE_PROFILE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/update-profile`;
@@ -92,12 +93,7 @@ export default function ProfileScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#eb1f2a" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('MainTabs')} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Complete Your Profile</Text>
-      </View>
+      <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
           <Image source={require('./../assets/userImage.png')} style={styles.profileImage} />
