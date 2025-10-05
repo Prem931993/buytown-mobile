@@ -269,6 +269,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 5,
     marginTop: 20,
+    width:"100%"
   },
   sectionTitle: {
     fontSize: 18,

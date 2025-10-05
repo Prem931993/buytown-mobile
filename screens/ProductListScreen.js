@@ -433,7 +433,7 @@ export default function ProductListScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000ff', paddingBottom:0, },
+  container: { flex: 1, backgroundColor: '#ffffff', paddingBottom:0, },
   categoryTitle: {
     // paddingHorizontal: 15,
     paddingTop: 15,

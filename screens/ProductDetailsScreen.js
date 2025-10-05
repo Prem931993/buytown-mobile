@@ -417,7 +417,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#ffffff',
   },
   scrollContent: {
     paddingBottom: 60,
