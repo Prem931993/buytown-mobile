@@ -16,6 +16,8 @@ export const AppProvider = ({ children }) => {
 
   const [cartRefresh, setCartRefresh] = useState(false)
 
+  let refreshPromise = null;
+
   useEffect(() => {
     const fetchToken = async () => {
       try {
@@ -43,13 +45,21 @@ export const AppProvider = ({ children }) => {
 
   const onGenerateToken = async (force) => {
     if (force) {
-      try {
-        const token = await getBearerToken();
-        await AsyncStorage.setItem("apiToken", token);
-        setapiToken(token);
-      } catch (e) {
-        console.log("Regenerate token error:", e);
+      if (refreshPromise) {
+        return refreshPromise;
       }
+      refreshPromise = (async () => {
+        try {
+          const token = await getBearerToken();
+          await AsyncStorage.setItem("apiToken", token);
+          setapiToken(token);
+        } catch (e) {
+          console.log("Regenerate token error:", e);
+        } finally {
+          refreshPromise = null;
+        }
+      })();
+      return refreshPromise;
     }
   };
 

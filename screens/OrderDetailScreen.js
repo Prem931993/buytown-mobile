@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import InnerHeader from './../components/InnerHeader';
 
 export default function OrderDetailScreen({ route, navigation }) {
   const { order } = route.params;
@@ -17,12 +18,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back-outline" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Order Details</Text>
-      </View>
+      <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Order Details */}
         <View style={styles.section}>
@@ -125,27 +121,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-  },
-  header: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 15,
-    paddingTop: 15,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  backButton: {
-    marginRight: 15,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
   },
   scrollContainer: {
     padding: 20,

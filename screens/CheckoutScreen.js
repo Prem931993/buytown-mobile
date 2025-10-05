@@ -1,10 +1,12 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, ActivityIndicator, PermissionsAndroid, Platform, Modal } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, Alert, ScrollView, ActivityIndicator, Platform, Modal } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import { Colors } from '../constants/theme';
 import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Location from 'expo-location';
+import InnerHeader from './../components/InnerHeader';
 
 // Conditionally import WebView only for native platforms
 let WebView;
@@ -12,45 +14,17 @@ if (Platform.OS !== 'web') {
   WebView = require('react-native-webview').default;
 }
 
-// Conditionally import geolocation components only for native platforms
-let Geolocation;
+// Conditionally import map components only for native platforms
 let MapView, Marker, PROVIDER_GOOGLE;
-
-// Default fallback for Geolocation
-Geolocation = {
-  getCurrentPosition: (success, error) => {
-    if (error) error({ code: 1, message: 'Location not available' });
-  },
-  requestAuthorization: () => Promise.resolve('denied'),
-};
 
 if (Platform.OS !== 'web') {
   try {
-    console.log('Attempting to load map components on', Platform.OS);
     MapView = require('react-native-maps').default;
     Marker = require('react-native-maps').Marker;
     PROVIDER_GOOGLE = require('react-native-maps').PROVIDER_GOOGLE;
-    console.log('MapView loaded:', !!MapView);
-    const geo = require('react-native-geolocation-service');
-    if (geo && geo.default) {
-      Geolocation = geo.default;
-    } else if (geo) {
-      Geolocation = geo;
-    }
-    console.log('Geolocation loaded:', !!Geolocation);
   } catch (error) {
     console.warn('Map components not available on this platform:', error.message);
   }
-}
-
-// Ensure Geolocation has the required methods
-if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
-  Geolocation = {
-    getCurrentPosition: (success, error) => {
-      if (error) error({ code: 1, message: 'Location not available' });
-    },
-    requestAuthorization: () => Promise.resolve('denied'),
-  };
 }
 
 // RS Puram, Coimbatore coordinates
@@ -123,13 +97,28 @@ export default function CheckoutScreen({ navigation }) {
     return distance;
   };
 
-  const updateDistanceAndValidation = (latitude, longitude) => {
-    const distance = calculateDistance(
-      COIMBATORE_COORDS.latitude,
-      COIMBATORE_COORDS.longitude,
-      latitude,
-      longitude
-    );
+  // Function to get driving distance from Google Maps Directions API
+  const getDrivingDistance = async (origin, destination) => {
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`
+      );
+      if (response.data.status === 'OK' && response.data.routes.length > 0) {
+        const route = response.data.routes[0];
+        if (route.legs && route.legs.length > 0) {
+          const distance = route.legs[0].distance.value / 1000; // meters to km
+          return distance;
+        }
+      }
+    } catch (error) {
+      console.error('Driving distance fetch error:', error);
+    }
+    // Fallback to Haversine formula
+    return calculateDistance(origin.latitude, origin.longitude, destination.latitude, destination.longitude);
+  };
+
+  const updateDistanceAndValidation = async (latitude, longitude) => {
+    const distance = await getDrivingDistance(COIMBATORE_COORDS, { latitude, longitude });
     setSelectedDistance(distance);
     setDeliveryDistance(distance);
     const withinRadius = distance <= 25;
@@ -198,80 +187,39 @@ export default function CheckoutScreen({ navigation }) {
 
 
 
-  const requestLocationPermission = async () => {
-    try {
-      if (!Geolocation) return false;
-      if (Platform.OS === 'ios') {
-        const auth = await Geolocation.requestAuthorization('whenInUse');
-        console.log('iOS Location Permission Status:', auth);
-        return auth === 'granted';
-      } else {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Permission',
-            message: 'This app needs access to your location to show your current position on the map.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          },
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      }
-    } catch (error) {
-      console.error('Permission request error:', error);
-      return false;
-    }
-  };
-
   const getCurrentLocation = async () => {
     try {
-      if (!Geolocation || typeof Geolocation.getCurrentPosition !== 'function') {
-        Alert.alert('Error', 'Location services not available on this platform');
-        return;
-      }
-
-      const hasPermission = await requestLocationPermission();
-      if (!hasPermission) {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required to get your current location.');
         return;
       }
 
-      Geolocation.getCurrentPosition(
-        (position) => {
-          try {
-            const { latitude, longitude } = position.coords;
-            const newRegion = {
-              latitude,
-              longitude,
-              latitudeDelta: 0.0922,
-              longitudeDelta: 0.0421,
-            };
-            setMapRegion(newRegion);
-            setDestinationCoords({ latitude, longitude });
-            updateDistanceAndValidation(latitude, longitude);
-            reverseGeocode(latitude, longitude);
-          } catch (error) {
-            console.error('Position handling error:', error);
-            Alert.alert('Error', 'Failed to process location data');
-          }
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          Alert.alert('Error', `Failed to get current location: ${error.message || 'Unknown error'}`);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 15000,
+      });
+
+      const { latitude, longitude } = location.coords;
+      const newRegion = {
+        latitude,
+        longitude,
+        latitudeDelta: 0.0922,
+        longitudeDelta: 0.0421,
+      };
+      setMapRegion(newRegion);
+      setDestinationCoords({ latitude, longitude });
+      updateDistanceAndValidation(latitude, longitude);
+      reverseGeocode(latitude, longitude);
     } catch (error) {
       console.error('getCurrentLocation error:', error);
-      Alert.alert('Error', 'An unexpected error occurred while getting location');
+      Alert.alert('Error', `Failed to get current location: ${error.message || 'Unknown error'}`);
     }
   };
 
   const handleWebViewMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('WebView message received:', data);
       if (data.type === 'mapClick') {
         setDestinationCoords({ latitude: data.lat, longitude: data.lng });
 
@@ -282,7 +230,6 @@ export default function CheckoutScreen({ navigation }) {
         }
 
         if (data.addressData) {
-          console.log('Complete address data from map click:', data.addressData);
           setShippingAddress(prev => ({
             ...prev,
             ...data.addressData,
@@ -301,9 +248,7 @@ export default function CheckoutScreen({ navigation }) {
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`
       );
       if (response.data.status === 'OK' && response.data.results.length > 0) {
-        console.log("response", response.data)
         const result = response.data.results[0];
-        console.log('Complete address result from reverseGeocode:', result);
         const addressComponents = result.address_components;
 
         let locality = '';
@@ -372,17 +317,25 @@ export default function CheckoutScreen({ navigation }) {
     if (!gstNumber || gstNumber.length < 15) return;
     setGstLoading(true);
     try {
-      const response = await axios.get(`http://sheet.gstincheck.co.in/check/4234c3e5750dcf3d630bc09ff60d8ba3/${gstNumber}`);
-      if (response.data && response.data.flag) {
-        const data = response.data.data;
-        const pradr = data.pradr;
-        const addr = pradr.addr;
+      const response = await axios.post('https://gst-verification.p.rapidapi.com/v3/tasks/sync/verify_with_source/ind_gst_certificate', {
+        task_id: '74f4c926-250c-43ca-9c53-453e87ceacd1',
+        group_id: '8e16424a-58fc-4ba4-ab20-5bc8e7c3c41e',
+        data: { gstin: gstNumber }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-rapidapi-host': 'gst-verification.p.rapidapi.com',
+          'x-rapidapi-key': 'dde12f15eemsha9b21be25825a20p1e707ajsn9091b64f86f0'
+        }
+      });
+      if (response.data && response.data.status === 'completed' && response.data.result?.source_output?.status === 'id_found') {
+        const address = response.data.result.source_output.principal_place_of_business_fields?.principal_place_of_business_address;
         setBillingAddress(prev => ({
           ...prev,
-          street: pradr.adr || prev.street,
-          city: addr.loc || prev.city,
-          state: addr.stcd || prev.state,
-          zip_code: addr.pncd || prev.zip_code,
+          street: address?.street || prev.street,
+          city: address?.location || prev.city,
+          state: address?.state_name || prev.state,
+          zip_code: address?.pincode || prev.zip_code,
         }));
       } else {
         Alert.alert('GST Error', 'Invalid GST number or unable to fetch details.');
@@ -616,7 +569,6 @@ export default function CheckoutScreen({ navigation }) {
                   let addressData = null;
                   if (addrData.status === 'OK' && addrData.results.length > 0) {
                     const result = addrData.results[0];
-                    console.log("addrData", addrData.results)
                     const components = result.address_components;
                     let locality = '';
                     let admin2 = '';
@@ -726,19 +678,8 @@ export default function CheckoutScreen({ navigation }) {
 
   return (
     <>
-      
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow-back-outline" size={24} color="#000" />
-          </TouchableOpacity>
-          <View style={styles.logoContainer}>
-            <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
-          </View>
-          <TouchableOpacity style={styles.notificationButton}>
-            <Icon name="notifications-outline" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
+        <InnerHeader showSearch={false} />
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <Text style={styles.title}>Checkout</Text>
 
@@ -964,29 +905,6 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    backgroundColor: '#fff',
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  backButton: {
-    padding: 5,
-  },
-  logoContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  notificationButton: {
-    padding: 5,
-  },
-  logo: {
-    width: 120,
-    height: 50,
-    resizeMode: 'contain',
-  },
   container: { flex: 1, backgroundColor: '#000000' },
   scrollContainer: { padding: 20, backgroundColor: '#f9f9f9' },
   title: {

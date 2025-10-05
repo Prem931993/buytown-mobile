@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   BackHandler,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import InnerHeader from './../components/InnerHeader';
 
 export default function OrderSuccessScreen({ route, navigation }) {
   const { order } = route.params;
@@ -33,7 +35,8 @@ export default function OrderSuccessScreen({ route, navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Success Icon and Message */}
         <View style={styles.successSection}>
@@ -157,7 +160,7 @@ export default function OrderSuccessScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -165,7 +168,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    paddingTop: 30,
   },
   scrollContainer: {
     padding: 20,

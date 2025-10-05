@@ -1,4 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
+import React from 'react';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
 import { useContext, useEffect, useState } from 'react';
 import {
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Icon from 'react-native-vector-icons/Ionicons';
 
 import RecentOrders from '../components/RecentOrders';
 import BannerCarousel from './../components/BannerCarousel';
@@ -94,15 +96,32 @@ export default function HomeScreen() {
         'Error fetching random products:',
         error.response?.data || error.message
       );
-      if (error.response?.data == "Invalid or expired API token.") {
-        await onGenerateToken(true);
-        // Retry the API call after token regeneration
-        await fetchRandomProducts();
-      }
+      // Do not regenerate token here to avoid multiple regenerations
     } finally {
       setLoading(false);
     }
   };
+
+  // Fetch Wishlist
+  // Removed fetchWishlist as wishlist status is included in product API responses (is_wishlisted flag)
+  // const fetchWishlist = async () => {
+  //   try {
+  //     const response = await axios.get(
+  //       `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/wishlist?page=1&limit=1000`,
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${apiToken}`,
+  //           'X-User-Token': `Bearer ${accessTokens}`,
+  //         },
+  //       }
+  //     );
+  //     if (response.data.statusCode === 200) {
+  //       setWishlistItems(response.data.data || []);
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching wishlist:', error);
+  //   }
+  // };
 
   // Pull to refresh
   const onRefresh = async () => {
@@ -141,6 +160,14 @@ export default function HomeScreen() {
     }
   }, [apiToken, accessTokens, loadingTokens]);
 
+  // Refresh data when screen is focused (to handle updates from other screens)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchTopSelling();
+      fetchRandomProducts();
+    }, [apiToken, accessTokens])
+  );
+
   // Handle back button to exit app
   useEffect(() => {
     const backAction = () => {
@@ -162,6 +189,26 @@ export default function HomeScreen() {
 
     return () => backHandler.remove();
   }, []);
+
+
+
+  // Toggle wishlist
+  const toggleWishlist = async (productId) => {
+    try {
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/wishlist/${productId}/toggle`, {}, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      // Refetch products to update wishlist status
+      await fetchTopSelling();
+      await fetchRandomProducts();
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+      console.error('Error response:', error.response?.data);
+    }
+  };
 
   // Show waiting screen if tokens not loaded yet
   if (loadingTokens || !apiToken || !accessTokens) {
@@ -198,7 +245,9 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>Top Selling Products</Text>
           </View>
         <View style={styles.sectionRow}></View>
-          {topSellingProducts.filter(item => item).map((item) => (
+          {topSellingProducts.filter(item => item).map((item) => {
+            const isInWishlist = item.is_wishlisted || false;
+            return (
             <TouchableOpacity
               key={item.id}
               style={styles.flashCard}
@@ -217,6 +266,16 @@ export default function HomeScreen() {
                     <Text style={styles.bestSellerText}>Best Seller</Text>
                   </View>
                 )}
+                <TouchableOpacity
+                  style={styles.wishlistIcon}
+                  onPress={() => toggleWishlist(item.id)}
+                >
+                  <Icon
+                    name={isInWishlist ? "heart" : "heart-outline"}
+                    size={24}
+                    color={isInWishlist ? "#F44336" : "#666"}
+                  />
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.flashName}>{item.name}</Text>
@@ -227,7 +286,8 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
+            )
+          })}
         </View>
 
         <RecentOrders />
@@ -235,7 +295,9 @@ export default function HomeScreen() {
 
         {/* Random Products */}
         <View style={styles.productList}>
-          {randomProducts?.filter(item => item).map((item) => (
+          {randomProducts?.filter(item => item).map((item) => {
+            const isInWishlist = item.is_wishlisted || false;
+            return (
             <TouchableOpacity
               key={item.id}
               style={styles.flashCard}
@@ -244,10 +306,22 @@ export default function HomeScreen() {
               }
               delayPressIn={0}
             >
-              <Image
-                source={{ uri: item?.images[0]?.path }}
-                style={styles.flashImage}
-              />
+              <View style={styles.imageWrapper}>
+                <Image
+                  source={{ uri: item?.images[0]?.path }}
+                  style={styles.flashImage}
+                />
+                <TouchableOpacity
+                  style={styles.wishlistIcon}
+                  onPress={() => toggleWishlist(item.id)}
+                >
+                  <Icon
+                    name={isInWishlist ? "heart" : "heart-outline"}
+                    size={24}
+                    color={isInWishlist ? "#F44336" : "#666"}
+                  />
+                </TouchableOpacity>
+              </View>
               <Text style={styles.flashName}>{item.name}</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.offerPrice}>
@@ -256,7 +330,8 @@ export default function HomeScreen() {
                 </Text>
               </View>
             </TouchableOpacity>
-          ))}
+            )
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -326,6 +401,15 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  wishlistIcon: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 12,
+    padding: 4,
+    zIndex: 2,
   },
   flashName: {
     fontSize: 14,

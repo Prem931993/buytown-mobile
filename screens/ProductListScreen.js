@@ -38,6 +38,7 @@ export default function ProductListScreen({ route, navigation }) {
   const [isColorOpen, setIsColorOpen] = useState(true);
   const [isSizeOpen, setIsSizeOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
+  const [wishlistStatus, setWishlistStatus] = useState({});
 
   const slideAnim = useRef(new Animated.Value(width * 0.8)).current;
 
@@ -96,6 +97,12 @@ export default function ProductListScreen({ route, navigation }) {
       if (response.data.statusCode === 200) {
         const products = response.data.products;
         setProductList(products);
+        // Initialize wishlist status for each product
+        const initialWishlistStatus = {};
+        products.forEach(product => {
+          initialWishlistStatus[product.id] = product.is_wishlisted || false;
+        });
+        setWishlistStatus(initialWishlistStatus);
       }
     } catch (error) {
       console.error("Error fetching products:", error.response?.data || error.message);
@@ -118,6 +125,25 @@ export default function ProductListScreen({ route, navigation }) {
       useNativeDriver: false,
     }).start();
   }, [drawerVisible]);
+
+  // Toggle wishlist
+  const toggleWishlist = async (productId) => {
+    try {
+      await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/wishlist/${productId}/toggle`, {}, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      // Update local wishlist status
+      setWishlistStatus(prev => ({
+        ...prev,
+        [productId]: !prev[productId]
+      }));
+    } catch (error) {
+      console.error('Error toggling wishlist:', error);
+    }
+  };
 
 
 
@@ -226,12 +252,16 @@ export default function ProductListScreen({ route, navigation }) {
                 <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹{item?.selling_price}
               </Text>
 
-              <Icon
-                style={styles.whislistIcon}
-                name="heart-outline"
-                size={24}
-                color="#787878ff"
-              />
+              <TouchableOpacity
+                style={styles.wishlistIcon}
+                onPress={() => toggleWishlist(item.id)}
+              >
+                <Icon
+                  name={wishlistStatus[item.id] ? "heart" : "heart-outline"}
+                  size={24}
+                  color={wishlistStatus[item.id] ? "#F44336" : "#666"}
+                />
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.addBtn}
@@ -486,7 +516,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addText: { fontWeight: 'bold', color: '#000000ff', fontSize: 13 },
-  whislistIcon: { position: 'absolute', top: 5, right: 5 },
+  wishlistIcon: { position: 'absolute', top: 5, right: 5 },
   strikeOut: {
     textDecorationLine: 'line-through',
     textDecorationStyle: 'solid',
