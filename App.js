@@ -38,6 +38,7 @@ import TermsScreen from './screens/TermsScreen';
 import VariantScreen from './screens/VariantScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import MyWishlistScreen from './screens/MyWishlistScreen';
+import CustomerSupportScreen from './screens/CustomerSupportScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -230,6 +231,7 @@ export default function App() {
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
+          <Stack.Screen name="CustomerSupportScreen" component={CustomerSupportScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <LogoutModal />

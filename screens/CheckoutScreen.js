@@ -905,7 +905,7 @@ export default function CheckoutScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  container: { flex: 1, backgroundColor: '#ffffff' },
   scrollContainer: { padding: 20, backgroundColor: '#f9f9f9' },
   title: {
     fontSize: 28,

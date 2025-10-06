@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   Modal,
 } from 'react-native';
@@ -12,6 +11,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { useContext } from 'react';
 import { AppContext } from './../ContextAPI/ContextAPI';
 import InnerHeader from './../components/InnerHeader';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen({ navigation }) {
   const { logout } = useContext(AppContext);
@@ -38,6 +38,13 @@ export default function AccountScreen({ navigation }) {
       subtitle: 'Update your account password',
       icon: 'lock-closed-outline',
       onPress: () => navigation.navigate('ChangePasswordScreen'),
+    },
+    {
+      id: 'support',
+      title: 'Customer Support 24x7',
+      subtitle: 'Get help and support',
+      icon: 'headset-outline',
+      onPress: () => navigation.navigate('CustomerSupportScreen'),
     },
   ];
 
@@ -113,7 +120,7 @@ export default function AccountScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#ffffff',
   },
   scrollContainer: {
     flexGrow: 1,
