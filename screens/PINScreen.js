@@ -121,7 +121,7 @@ export default function PinEntryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      {/* <StatusBar barStyle="light-content" backgroundColor="black" /> */}
       <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
       {/* <I
       ine" size={24} color="#ffffff" style={{ marginBottom: 10,}} /> */}
@@ -201,43 +201,43 @@ export default function PinEntryScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, alignItems: 'center', flex: 1, justifyContent: 'center', backgroundColor: '#eb1f2a', },
+  container: { padding: 20, alignItems: 'center', flex: 1, justifyContent: 'center', backgroundColor: '#ffffff', },
   avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
-  welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, color:"#ffffff" },
-  notYou: { fontSize: 14, marginBottom: 15, color: '#ffffff', textDecorationLine: 'underline' },
-  instruction: { fontSize: 16, marginBottom: 20, color: '#ffffff' },
+  welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 5, color:"#000000" },
+  notYou: { fontSize: 14, marginBottom: 15, color: '#000000', textDecorationLine: 'underline' },
+  instruction: { fontSize: 16, marginBottom: 20, color: '#000000' },
   pinContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '80%' },
   pinInput: {
     borderBottomWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: '#000000',
     width: 50,
     height: 50,
     textAlign: 'center',
     fontSize: 24,
     marginHorizontal: 5,
-    color: '#ffffff'
+    color: '#000000'
   },
   forgot: {
-    color: '#ffffff',
+    color: '#000000',
     marginTop: 20,
     marginBottom: 20,
   },
   button: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
     padding: 15,
     borderRadius: 10,
     width: '80%',
     alignItems: 'center',
     marginTop:30
   },
-  buttonText: { color: '#eb1f2a', fontSize: 16 },
+  buttonText: { color: '#ffffff', fontSize: 16 },
   passwordInstead: {
     marginTop: 20,
     color: '#333',
     textDecorationLine: 'underline',
   },
   skip: {
-    color: '#ffffff',
+    color: '#000000',
     marginTop: 10,
   },
   modalOverlay: {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000000',
     borderRadius: 10,
     width: '90%',
     maxHeight: '80%',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   agreeButtonText: {
-    color: '#fff',
+    color: '#000000',
     fontSize: 16,
   },
 });

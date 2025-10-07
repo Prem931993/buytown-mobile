@@ -70,7 +70,15 @@ export default function Categories() {
           <Text style={styles.categoryLabel}>{cat.name}</Text>
         </TouchableOpacity>
       ))}
-      <TouchableOpacity style={styles.categoryItem} onPress={() => navigation.navigate('MainTabs', { screen: 'Category' })}>
+      <TouchableOpacity style={styles.categoryItem} 
+        // onPress={() => navigation.navigate('MainTabs', { screen: 'Category' })}
+        onPress={() => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs', params: { screen: 'Category' } }],
+          });
+        }}
+      >
           <Icon name='grid-outline' size={28} color="#999" />
           <Text style={styles.categoryLabel}>SEE MORE</Text>
         </TouchableOpacity>
