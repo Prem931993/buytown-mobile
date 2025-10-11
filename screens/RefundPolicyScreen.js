@@ -11,7 +11,7 @@ import { WebView } from 'react-native-webview';
 import axios from 'axios';
 import { AppContext } from '../ContextAPI/ContextAPI';
 
-export default function PrivacyPolicyScreen({ navigation }) {
+export default function RefundPolicyScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +35,7 @@ export default function PrivacyPolicyScreen({ navigation }) {
   };
 
   useEffect(() => {
-    fetchPage('privacy-policy');
+    fetchPage('refund-policy');
   }, []);
 
   if (loading) {
@@ -45,7 +45,7 @@ export default function PrivacyPolicyScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back-outline" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Privacy Policy</Text>
+          <Text style={styles.headerTitle}>Refund Policy</Text>
         </View>
         <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
           <ActivityIndicator size="large" color="#eb1f2a" />
@@ -62,7 +62,7 @@ export default function PrivacyPolicyScreen({ navigation }) {
           <Ionicons name="arrow-back-outline" size={24} color="#fff" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>{pageData?.title || 'Privacy Policy'}</Text>
+        <Text style={styles.headerTitle}>{pageData?.title || 'Refund Policy'}</Text>
 
       </View>
 

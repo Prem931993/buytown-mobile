@@ -92,7 +92,7 @@ export default function ProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#eb1f2a" />
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>

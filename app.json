@@ -45,6 +45,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "exp",
     "plugins": [
       "expo-font",
       [

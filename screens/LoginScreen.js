@@ -136,7 +136,7 @@ export default function LoginScreen({ navigation }) {
       }
     >
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="black" />
+        <StatusBar barStyle="light-content" backgroundColor="black" />
         
 
         <View style={styles.loginSection}>

@@ -36,7 +36,7 @@ export default function OrderSuccessScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <InnerHeader showSearch={false} />
+      <InnerHeader showSearch={false} showBackButton={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Success Icon and Message */}
         <View style={styles.successSection}>

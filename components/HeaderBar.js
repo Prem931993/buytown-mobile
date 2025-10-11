@@ -73,10 +73,14 @@ export default function HeaderBar() {
 
   useEffect(() => {
     if (searchText.length > 2) {
+      const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
-        searchAPI();
-      }, 3000);
-      return () => clearTimeout(timeoutId);
+        searchAPI(abortController);
+      }, 500);
+      return () => {
+        clearTimeout(timeoutId);
+        abortController.abort();
+      };
     } else {
       setSearchResultsProducts([]);
       setSearchResultsCategories([]);
@@ -275,7 +279,7 @@ export default function HeaderBar() {
     }
   };
 
-  const searchAPI = async () => {
+  const searchAPI = async (abortController) => {
     setLoading(true);
     try {
       const response = await axios.post(
@@ -287,6 +291,7 @@ export default function HeaderBar() {
             'X-User-Token': `Bearer ${accessTokens}`,
             'Content-Type': 'application/json',
           },
+          signal: abortController.signal,
         }
       );
       if (response.data.statusCode === 200) {
@@ -295,7 +300,9 @@ export default function HeaderBar() {
         setShowResults(true);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Search error:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -383,7 +390,7 @@ export default function HeaderBar() {
 
   return (
     <View style={styles.container}>
-       <StatusBar barStyle="dark-content" backgroundColor="black" />
+       <StatusBar barStyle="light-content" backgroundColor="black" />
       
       {/* Top Row */}
       <View style={styles.topRow}>
@@ -446,6 +453,7 @@ export default function HeaderBar() {
                     style={styles.categoryItem}
                     onPress={() => handleProductPress(item)}
                   >
+                    <Icon name="cube-outline" size={20} color="#eb1f2a" style={styles.itemIcon} />
                     <Text style={styles.categoryName}>{item.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -460,6 +468,7 @@ export default function HeaderBar() {
                     style={styles.categoryItem}
                     onPress={() => handleCategoryPress(item)}
                   >
+                    <Icon name="folder-outline" size={20} color="#eb1f2a" style={styles.itemIcon} />
                     <Text style={styles.categoryName}>{item.name}</Text>
                   </TouchableOpacity>
                 ))}
@@ -582,8 +591,14 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 5,
+    borderRadius: 12,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
     maxHeight: 300,
     zIndex: 20,
   },
@@ -593,19 +608,28 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 16,
     fontWeight: 'bold',
-    paddingVertical: 5,
-    backgroundColor: '#f0f0f0',
-    color: '#333',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#f8f9fa',
+    color: '#495057',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   categoryItem: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f1f1f1',
+  },
+  itemIcon: {
+    marginRight: 12,
   },
   categoryName: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#333',
   },
   noResultsText: {
     textAlign: 'center',

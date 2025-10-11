@@ -48,7 +48,7 @@ const NotificationItem = memo(({ item, onMarkAsRead, onDelete }) => {
   );
 });
 
-export default function InnerHeader({ showSearch = true }) {
+export default function InnerHeader({ showSearch = true, showBackButton = true }) {
   const navigation = useNavigation();
   const { apiToken, accessTokens } = useContext(AppContext);
 
@@ -69,10 +69,14 @@ export default function InnerHeader({ showSearch = true }) {
 
   useEffect(() => {
     if (searchText.length > 2) {
+      const abortController = new AbortController();
       const timeoutId = setTimeout(() => {
-        searchAPI();
+        searchAPI(abortController);
       }, 500);
-      return () => clearTimeout(timeoutId);
+      return () => {
+        clearTimeout(timeoutId);
+        abortController.abort();
+      };
     } else {
       setSearchResultsProducts([]);
       setSearchResultsCategories([]);
@@ -104,7 +108,7 @@ export default function InnerHeader({ showSearch = true }) {
     }
   }, [categories]);
 
-  const searchAPI = async () => {
+  const searchAPI = async (abortController) => {
     setLoading(true);
     try {
       const response = await axios.post(
@@ -116,6 +120,7 @@ export default function InnerHeader({ showSearch = true }) {
             'X-User-Token': `Bearer ${accessTokens}`,
             'Content-Type': 'application/json',
           },
+          signal: abortController.signal,
         }
       );
       if (response.data.statusCode === 200) {
@@ -124,7 +129,9 @@ export default function InnerHeader({ showSearch = true }) {
         setShowResults(true);
       }
     } catch (error) {
-      console.error('Search error:', error);
+      if (!axios.isCancel(error)) {
+        console.error('Search error:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -321,9 +328,11 @@ export default function InnerHeader({ showSearch = true }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back-outline" size={24} color="#000" />
-        </TouchableOpacity>
+        {showBackButton && (
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Icon name="arrow-back-outline" size={24} color="#000" />
+          </TouchableOpacity>
+        )}
         <View style={styles.logoContainer}>
           <Image source={require('./../assets/logo-brand.png')} style={styles.logo} />
         </View>
@@ -372,6 +381,7 @@ export default function InnerHeader({ showSearch = true }) {
                         onPress={() => handleProductPress(item)}
                         onStartShouldSetResponder={() => true}
                       >
+                        <Icon name="cube-outline" size={20} color="#eb1f2a" style={styles.itemIcon} />
                         <Text style={styles.categoryName}>{item.name}</Text>
                       </TouchableOpacity>
                     ))}
@@ -387,6 +397,7 @@ export default function InnerHeader({ showSearch = true }) {
                         onPress={() => handleCategoryPress(item)}
                         onStartShouldSetResponder={() => true}
                       >
+                        <Icon name="folder-outline" size={20} color="#eb1f2a" style={styles.itemIcon} />
                         <Text style={styles.categoryName}>{item.name}</Text>
                       </TouchableOpacity>
                     ))}
@@ -517,8 +528,14 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 5,
+    borderRadius: 12,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
     maxHeight: 300,
     zIndex: 20,
   },
@@ -528,19 +545,28 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 16,
     fontWeight: 'bold',
-    paddingVertical: 5,
-    backgroundColor: '#f0f0f0',
-    color: '#333',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#f8f9fa',
+    color: '#495057',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   categoryItem: {
-    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f1f1f1',
+  },
+  itemIcon: {
+    marginRight: 12,
   },
   categoryName: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#333',
   },
   overlay: {
     position: 'absolute',

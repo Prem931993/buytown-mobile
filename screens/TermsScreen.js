@@ -1,14 +1,59 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  TouchableOpacity
+  TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { WebView } from 'react-native-webview';
+import axios from 'axios';
+import { AppContext } from '../ContextAPI/ContextAPI';
 
 export default function TermsAndConditionsScreen({ navigation }) {
+  const { apiToken, accessTokens } = useContext(AppContext);
+  const [pageData, setPageData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPage = async (slug) => {
+    try {
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/pages/slug/${slug}`, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      if (response.data.success) {
+        setPageData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching page:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPage('terms-conditions');
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back-outline" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Terms & Conditions</Text>
+        </View>
+        <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+          <ActivityIndicator size="large" color="#eb1f2a" />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* 🔼 Topbar */}
@@ -17,41 +62,14 @@ export default function TermsAndConditionsScreen({ navigation }) {
           <Ionicons name="arrow-back-outline" size={24} color="#fff" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Terms & Conditions</Text>
+        <Text style={styles.headerTitle}>{pageData?.title || 'Terms & Conditions'}</Text>
       </View>
 
       {/* 📃 Terms Content */}
-      <ScrollView contentContainerStyle={styles.content}>
-        {terms.map((item, index) => (
-          <Text key={index} style={styles.termItem}>
-            {index + 1}. {item}
-          </Text>
-        ))}
-
-        <Text style={styles.footer}>Last updated: June 29, 2025</Text>
-      </ScrollView>
+      <WebView source={{ html: pageData?.content }} style={styles.webview} />
     </View>
   );
 }
-
-const terms = [
-  'Welcome To BuyTown.',
-  'Goods Once Received Cannot be Returned Or Exchanged.',
-  'If the delivery is cancelled for some unknown reason, a cancellation fee of 5% is applicable on your next purchase. (Compulsory)',
-  'If goods are received with any damage, inform the BuyTown team within 60 minutes after delivery.',
-  'Delivery charges may differ based on distance (kilometres).',
-  'Minimum charge of Rs. 200 for delivery.',
-  'Minimum order should be Rs. 1000 for delivery.',
-  'If you want a GST bill, enter the GST number correctly. If any mistake happens after billing, it cannot be corrected.',
-  'Mica sheets are sent at your own risk. We ensure they are in good condition till delivery. Damages post-delivery are not our responsibility.',
-  'Machinery items are checked twice by the BuyTown team before delivery. Check upon delivery. If issues are found at that time, we are responsible. Later issues are not our responsibility.',
-  'Machine warranty and service are the responsibility of the authorized shop only, not BuyTown.',
-  'All products include GST.',
-  'Delivery happens within 4 hours of the order, or may vary based on location and traffic.',
-  'Charges may vary based on two-wheeler or four-wheeler delivery.',
-  'We ensure that the BuyTown products you order are of high quality and trustworthy. We appreciate your support and promise to provide the best service.',
-  'We only sell quality materials. Providing you with the best service is our top priority.',
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -74,27 +92,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     paddingLeft:5
   },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconSpacing: {
-    marginRight: 12,
-  },
   content: {
     padding: 20,
     paddingBottom:30
   },
-  termItem: {
-    fontSize: 16,
-    marginBottom: 12,
-    lineHeight: 25,
-    color: '#333',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: 30,
-    fontSize: 14,
-    color: '#999',
+  webview: {
+    flex: 1,
   },
 });

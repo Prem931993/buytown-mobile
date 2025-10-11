@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -8,15 +8,43 @@ import {
   ScrollView,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import axios from 'axios';
 import InnerHeader from '../components/InnerHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppContext } from '../ContextAPI/ContextAPI';
 
 export default function CustomerSupportScreen({ navigation }) {
+  const { apiToken, accessTokens } = useContext(AppContext);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [generalSettings, setGeneralSettings] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchGeneralSettings = async () => {
+    try {
+      const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/general-settings`, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+        },
+      });
+      if (response.data.success) {
+        setGeneralSettings(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching general settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGeneralSettings();
+  }, []);
 
   const handleSubmit = () => {
     if (!name || !email || !message) {
@@ -30,16 +58,29 @@ export default function CustomerSupportScreen({ navigation }) {
   };
 
   const contactDetails = {
-    phone: '+1-123-456-7890',
-    email: 'support@buytown.com',
-    address: '123 Main St, City, State, ZIP',
+    phone: generalSettings?.phone_number || '+1-123-456-7890',
+    email: generalSettings?.company_email || 'support@buytown.com',
+    address: generalSettings?.company_details || '123 Main St, City, State, ZIP',
   };
 
   const socialMedia = [
-    { name: 'logo-facebook', url: 'https://facebook.com/buytown' },
-    { name: 'logo-instagram', url: 'https://instagram.com/buytown' },
-    { name: 'logo-twitter', url: 'https://twitter.com/buytown' },
-  ];
+    generalSettings?.facebook_link ? { name: 'logo-facebook', url: generalSettings.facebook_link } : null,
+    generalSettings?.twitter_link ? { name: 'logo-twitter', url: generalSettings.twitter_link } : null,
+    generalSettings?.instagram_link ? { name: 'logo-instagram', url: generalSettings.instagram_link } : null,
+    generalSettings?.youtube_link ? { name: 'logo-youtube', url: generalSettings.youtube_link } : null,
+    generalSettings?.linkedin_link ? { name: 'logo-linkedin', url: generalSettings.linkedin_link } : null,
+  ].filter(item => item);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <InnerHeader showSearch={false} />
+        <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+          <ActivityIndicator size="large" color="#eb1f2a" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -88,9 +129,62 @@ export default function CustomerSupportScreen({ navigation }) {
         {/* Contact Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Contact Details</Text>
-          <Text style={styles.contactText}>Phone: {contactDetails.phone}</Text>
-          <Text style={styles.contactText}>Email: {contactDetails.email}</Text>
-          <Text style={styles.contactText}>Address: {contactDetails.address}</Text>
+          
+          <View style={styles.contactCard}>
+            {generalSettings?.company_name && (
+              <View style={styles.contactRowEnhanced}>
+                <View style={[styles.iconCircle, { backgroundColor: '#e0f3e0' }]}>
+                  <Icon name="business-outline" size={20} color="#2e7d32" />
+                </View>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactLabel}>Company</Text>
+                  <Text style={styles.contactValue}>{generalSettings.company_name}</Text>
+                </View>
+              </View>
+            )}
+
+            {generalSettings?.gstin_number && (
+              <View style={styles.contactRowEnhanced}>
+                <View style={[styles.iconCircle, { backgroundColor: '#f3e0e0' }]}>
+                  <Icon name="document-outline" size={20} color="#b71c1c" />
+                </View>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactLabel}>GSTIN</Text>
+                  <Text style={styles.contactValue}>{generalSettings.gstin_number}</Text>
+                </View>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.contactRowEnhanced} onPress={() => Linking.openURL(`tel:${contactDetails.phone}`)}>
+              <View style={[styles.iconCircle, { backgroundColor: '#e8f5e9' }]}>
+                <Icon name="call-outline" size={20} color="#1b5e20" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Phone</Text>
+                <Text style={[styles.contactValue, { color: '#2e7d32' }]}>{contactDetails.phone}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.contactRowEnhanced} onPress={() => Linking.openURL(`mailto:${contactDetails.email}`)}>
+              <View style={[styles.iconCircle, { backgroundColor: '#e3f2fd' }]}>
+                <Icon name="mail-outline" size={20} color="#0d47a1" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Email</Text>
+                <Text style={[styles.contactValue, { color: '#1565c0' }]}>{contactDetails.email}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.contactRowEnhanced}>
+              <View style={[styles.iconCircle, { backgroundColor: '#fff3e0' }]}>
+                <Icon name="location-outline" size={20} color="#ef6c00" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Address</Text>
+                <Text style={styles.contactValue}>{contactDetails.address}</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Social Media */}
@@ -129,6 +223,12 @@ export default function CustomerSupportScreen({ navigation }) {
             onPress={() => navigation.navigate('AboutScreen')}
           >
             <Text style={styles.linkText}>About</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.link}
+            onPress={() => navigation.navigate('RefundPolicy')}
+          >
+            <Text style={styles.linkText}>Refund Policy</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -216,4 +316,50 @@ const styles = StyleSheet.create({
     color: '#eb1f2a',
     textDecorationLine: 'underline',
   },
+contactCard: {
+  backgroundColor: '#fdfdfd',
+  borderRadius: 12,
+  paddingVertical: 10,
+  paddingHorizontal: 5,
+},
+
+contactRowEnhanced: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#fff',
+  borderRadius: 10,
+  marginBottom: 12,
+  paddingVertical: 10,
+  paddingHorizontal: 12,
+  elevation: 1,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.1,
+  shadowRadius: 2,
+},
+
+iconCircle: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 12,
+},
+
+contactInfo: {
+  flex: 1,
+},
+
+contactLabel: {
+  fontSize: 13,
+  color: '#999',
+  marginBottom: 2,
+},
+
+contactValue: {
+  fontSize: 15,
+  color: '#333',
+  fontWeight: '500',
+},
 });

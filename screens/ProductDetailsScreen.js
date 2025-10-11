@@ -122,6 +122,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
   const [expandedSections, setExpandedSections] = useState({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -143,10 +144,10 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <InnerHeader showSearch={false} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-       
+
 
         {/* Product Image Card */}
         <View style={styles.imageCard}>
@@ -157,9 +158,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
             {!selectedImage && (
               <Image source={{ uri: productDetails?.images[0]?.path }} style={styles.mainImage} />
             )}
-            <View style={styles.priceBadge}>
-              <Text style={styles.priceText}>₹{productDetails?.selling_price}</Text>
-            </View>
+
           </View>
 
           {/* Enhanced Image Thumbnails */}
@@ -199,10 +198,30 @@ export default function ProductDetailsScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
 
+            <View style={styles.quantitySection}>
+              <View style={styles.quantityControls}>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                >
+                  <Icon name="remove" size={20} color="#374151" />
+                </TouchableOpacity>
+                <View style={styles.qtyDisplay}>
+                  <Text style={styles.qtyText}>{quantity}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.qtyBtn}
+                  onPress={() => setQuantity(quantity + 1)}
+                >
+                  <Icon name="add" size={20} color="#374151" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
           </View>
 
           {/* Accordion Sections */}
-          <View style={styles.accordionContainer}>
+          <View style={[styles.accordionContainer, { marginBottom: productDetails?.relatedProducts?.length > 0 ? 24 : 0 }]}>
             {/* Product Details Accordion */}
             <TouchableOpacity
               style={styles.accordionHeader}
@@ -290,85 +309,7 @@ export default function ProductDetailsScreen({ route, navigation }) {
               </View>
             )}
 
-            {/* Specifications Accordion */}
-            <TouchableOpacity
-              style={styles.accordionHeader}
-              onPress={() => toggleSection('specs')}
-            >
-              <View style={styles.accordionTitleRow}>
-                <Icon name="hardware-chip" size={20} color="#000000" />
-                <Text style={styles.accordionTitle}>Specifications</Text>
-              </View>
-              <Icon
-                name={expandedSections.specs ? "chevron-up" : "chevron-down"}
-                size={20}
-                color="#666"
-              />
-            </TouchableOpacity>
-            {expandedSections.specs && (
-              <View style={styles.accordionContent}>
-                <View style={styles.specsGrid}>
-                  <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Length</Text>
-                    <Text style={styles.specValue}>{productDetails?.length_mm} mm</Text>
-                  </View>
-                  <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Width</Text>
-                    <Text style={styles.specValue}>{productDetails?.width_mm} mm</Text>
-                  </View>
-                  <View style={styles.specItem}>
-                    <Text style={styles.specLabel}>Height</Text>
-                    <Text style={styles.specValue}>{productDetails?.height_mm} mm</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
 
-          {/* Modern Quantity & Cart Section */}
-          <View style={styles.actionCard}>
-            <View style={styles.quantitySection}>
-              <Text style={styles.quantityLabel}>Quantity</Text>
-              <View style={styles.quantityControls}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                >
-                  <Icon name="remove" size={20} color="#fff" />
-                </TouchableOpacity>
-                <View style={styles.qtyDisplay}>
-                  <Text style={styles.qtyText}>{quantity}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => setQuantity(quantity + 1)}
-                >
-                  <Icon name="add" size={20} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.addToCartBtn}
-              onPress={() => addToCartAPI(productDetails?.id, quantity)}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={['#000000', '#333333']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.gradientBtn}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Icon name="bag-add" size={20} color="#fff" />
-                    <Text style={styles.addToCartText}>Add to Cart</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -438,6 +379,45 @@ export default function ProductDetailsScreen({ route, navigation }) {
           </View>
         </Modal>
       </ScrollView>
+
+      {/* Sticky Action Card */}
+      <View style={styles.stickyActionCard}>
+        <View style={styles.priceSection}>
+          <View style={styles.priceLabelRow}>
+            <Text style={styles.priceLabel}>Price</Text>
+            <TouchableOpacity onPress={() => setShowTooltip(!showTooltip)}>
+              <Icon name="information-circle-outline" size={16} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          {showTooltip && (
+            <TouchableOpacity style={styles.tooltip} onPress={() => setShowTooltip(false)}>
+              <Text style={styles.tooltipText}>Exclusive of tax</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.priceValue}>₹{productDetails?.selling_price}</Text>
+        </View>
+
+        <View style={styles.buttonSection}>
+          <TouchableOpacity
+            style={styles.addToCartBtn}
+            onPress={() => addToCartAPI(productDetails?.id, quantity)}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Icon name="bag-add" size={24} color="#fff" />
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.buyNowBtn}
+            onPress={() => navigation.navigate('Cart', { screen: 'CheckoutScreen', params: { buyNowProduct: productDetails, quantity } })}
+          >
+            <Text style={styles.buyNowText}>Buy Now</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -448,7 +428,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    paddingBottom: 60,
+    paddingBottom: 200,
     backgroundColor:"#ffffff"
   },
 
@@ -548,6 +528,46 @@ const styles = StyleSheet.create({
   wishlistButton: {
     padding: 8,
   },
+  quantitySection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 16,
+  },
+  quantityLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  quantityControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  qtyBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qtyDisplay: {
+    width: 50,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    marginHorizontal: 8,
+  },
+  qtyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -627,94 +647,8 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     lineHeight: 24,
   },
-  specsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  specItem: {
-    flex: 1,
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    marginHorizontal: 4,
-  },
-  specLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  specValue: {
-    fontSize: 16,
-    color: '#1f2937',
-    fontWeight: '700',
-  },
 
-  // Action Card
-  actionCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    flexDirection: 'column',
-    alignItems: 'stretch',
-  },
-  quantitySection: {
-    marginBottom: 16,
-  },
-  quantityLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  quantityControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    padding: 4,
-    alignSelf: 'flex-start',
-  },
-  qtyBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qtyDisplay: {
-    minWidth: 50,
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  qtyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
-  },
-  addToCartBtn: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  gradientBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
-  addToCartText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 8,
-  },
+
 
   // Related Products
   relatedSection: {
@@ -731,7 +665,7 @@ const styles = StyleSheet.create({
   },
   relatedList: {
     paddingHorizontal: 4,
-    paddingBottom: 10,
+    paddingBottom: 0,
   },
   relatedCard: {
     width: 160,
@@ -837,6 +771,88 @@ const styles = StyleSheet.create({
   modalPrimaryButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Sticky Action Card
+  stickyActionCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: -2 },
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  priceSection: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    position: 'relative',
+  },
+  priceLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  priceLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  tooltip: {
+    position: 'absolute',
+    top: -30,
+    left: 20,
+    backgroundColor: '#000',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 10,
+  },
+  tooltipText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  priceValue: {
+    fontSize: 22,
+    color: '#000000',
+    fontWeight: '700',
+  },
+  buttonSection: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  addToCartBtn: {
+    backgroundColor: '#000000',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  buyNowBtn: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#000000',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  buyNowText: {
+    color: '#000000',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
