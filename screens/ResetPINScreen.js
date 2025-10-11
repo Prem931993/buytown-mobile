@@ -92,29 +92,29 @@ export default function ResetPinScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, alignItems: 'center', flex: 1, justifyContent: 'center', backgroundColor: '#eb1f2a' },
+  container: { padding: 20, alignItems: 'center', flex: 1, justifyContent: 'center', backgroundColor: '#ffffff' },
   avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, color: '#fff' },
-  instruction: { fontSize: 16, marginVertical: 10, color: '#fff' },
+  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, color: '#000000' },
+  instruction: { fontSize: 16, marginVertical: 10, color: '#000000' },
   pinContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '80%', marginBottom:30 },
   pinInput: {
     borderBottomWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: '#000000',
     width: 50,
     height: 50,
     textAlign: 'center',
     fontSize: 24,
     marginHorizontal: 5,
-    color: '#ffffff'
+    color: '#000000'
   },
   button: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#000000',
     padding: 15,
     borderRadius: 10,
     width: '80%',
     alignItems: 'center',
     marginTop: 30,
   },
-  buttonText: { color: '#eb1f2a', fontSize: 16 },
-  whiteText: {color: "#ffffff", marginTop: 20, padding: 15}
+  buttonText: { color: '#ffffff', fontSize: 16 },
+  whiteText: {color: "#000000", marginTop: 20, padding: 15}
 });

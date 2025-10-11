@@ -47,12 +47,14 @@ const CategoryStack = createNativeStackNavigator();
 const CartStack = createNativeStackNavigator();
 const WishlistStack = createNativeStackNavigator();
 const AccountStack = createNativeStackNavigator();
+const MyAccountStack = createNativeStackNavigator();
 
 function HomeStackScreen() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
+      <HomeStack.Screen name="ProductListScreen" component={ProductListScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -97,6 +99,21 @@ function AccountStackScreen() {
   );
 }
 
+function MyAccountStackScreen() {
+  return (
+    <MyAccountStack.Navigator screenOptions={{ headerShown: false }}>
+      <MyAccountStack.Screen name="AccountScreen" component={AccountScreen} />
+      <MyAccountStack.Screen name="CustomerSupportScreen" component={CustomerSupportScreen} />
+      <MyAccountStack.Screen name="MyOrdersScreen" component={MyOrdersScreen} />
+      <MyAccountStack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
+      <MyAccountStack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
+      <MyAccountStack.Screen name="ProfileScreen" component={ProfileScreen} />
+    </MyAccountStack.Navigator>
+  );
+}
+
+
+
 // Tabs
 function MainTabs() {
   return (
@@ -131,9 +148,33 @@ function MainTabs() {
           },
         })}
       />
-      <Tab.Screen name="Cart" component={CartStackScreen} />
+      <Tab.Screen 
+        name="Cart" 
+        component={CartStackScreen} 
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Cart' }],
+            });
+          },
+        })}
+      />
       <Tab.Screen name="Wishlist" component={WishlistStackScreen} />
-      <Tab.Screen name="Account" component={AccountScreen} />
+      <Tab.Screen 
+        name="Account"
+        component={MyAccountStackScreen}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Account' }],
+            });
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 }
@@ -219,10 +260,7 @@ export default function App() {
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-          <Stack.Screen name="AccountScreen" component={AccountScreen} />
-          <Stack.Screen name="MyOrdersScreen" component={MyOrdersScreen} />
-          <Stack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
-          <Stack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
+         
 
           {/* Main App Screens with Tabs */}
           <Stack.Screen name="MainTabs" component={MainTabs} />
@@ -232,7 +270,7 @@ export default function App() {
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
-          <Stack.Screen name="CustomerSupportScreen" component={CustomerSupportScreen} />
+          
         </Stack.Navigator>
       </NavigationContainer>
       <LogoutModal />

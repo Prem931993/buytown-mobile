@@ -12,6 +12,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  StatusBar
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -320,6 +321,7 @@ export default function InnerHeader({ showSearch = true }) {
 
   return (
     <View style={styles.container}>
+      <StatusBar  barStyle="dark-content" backgroundColor="black" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Icon name="arrow-back-outline" size={24} color="#000" />
