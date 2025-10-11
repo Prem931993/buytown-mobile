@@ -228,6 +228,7 @@ export default function App() {
           <Stack.Screen name="MainTabs" component={MainTabs} />
           <Stack.Screen name="OrderSuccessScreen" component={OrderSuccessScreen} />
           <Stack.Screen name="DeliverySuccessScreen" component={DeliverySuccessScreen} />
+          <Stack.Screen name="CategoryMain" component={CategoryScreen} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
           <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
