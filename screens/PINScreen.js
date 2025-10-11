@@ -121,7 +121,7 @@ export default function PinEntryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* <StatusBar barStyle="light-content" backgroundColor="black" /> */}
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
       {/* <I
       ine" size={24} color="#ffffff" style={{ marginBottom: 10,}} /> */}

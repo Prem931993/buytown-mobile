@@ -1,24 +1,23 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import { useContext, useEffect, useRef, useState } from "react";
-import { Dimensions, Image, StyleSheet, View } from "react-native";
+import { useContext, useEffect, useState } from "react";
+import { Dimensions, Image, Pressable, StyleSheet, View } from "react-native";
 import { useSharedValue } from "react-native-reanimated";
-import Carousel from "react-native-reanimated-carousel";
+import Carousel, { Pagination } from "react-native-reanimated-carousel";
 import { AppContext } from "./../ContextAPI/ContextAPI";
 
-import { Video } from "expo-av"; // Expo video
+import { VideoView, useVideoPlayer } from 'expo-video'; // Expo video
 import YoutubePlayer from "react-native-youtube-iframe"; // YouTube player
 
 const { width: screenWidth } = Dimensions.get("window");
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/banners`;
 
-export default function BannerCarousel() {
+export default function BannerCarousel({ navigation }) {
   const { apiToken, accessTokens, onGenerateToken } =
     useContext(AppContext);
 
   const [banners, setBanners] = useState([]);
   const [activeSlide, setActiveSlide] = useState(0);
-  const videoRefs = useRef({});
   const scrollOffsetValue = useSharedValue(0);
 
   useEffect(() => {
@@ -33,7 +32,7 @@ export default function BannerCarousel() {
         });
 
         if (response.data.statusCode === 200) {
-          setBanners(response.data.banners);
+          setBanners(response.data.banners.filter(b => b && b.file_path));
         }
       } catch (error) {
         console.error(
@@ -60,11 +59,39 @@ export default function BannerCarousel() {
     return match ? match[1] : null;
   };
 
+  const VideoItem = ({ item, index, activeSlide }) => {
+    const player = useVideoPlayer(item.file_path, (playerInstance) => {
+      if (playerInstance) {
+        playerInstance.loop = true;
+      }
+    });
+
+    useEffect(() => {
+      if (player) {
+        if (activeSlide === index) {
+          player.play();
+        } else {
+          player.pause();
+        }
+      }
+    }, [activeSlide, index, player]);
+
+    return player ? <VideoView player={player} style={styles.banner} contentFit="cover" fullscreenOptions={{}} /> : null;
+  };
+
+  const handleBannerPress = (item) => {
+    if (item.link_type === 'product') {
+      navigation.navigate('ProductDetailsScreen', { product: { id: item.link_id } });
+    } else if (item.link_type === 'category') {
+      navigation.navigate('ProductListScreen', { categoryId: item.link_id });
+    }
+  };
+
   return (
     <View style={styles.carouselContainer}>
       <Carousel
         loop
-        width={screenWidth * 0.9}
+        width={screenWidth - 40}
         height={160}
         autoPlay
         autoPlayInterval={5000}
@@ -74,54 +101,35 @@ export default function BannerCarousel() {
         defaultScrollOffsetValue={scrollOffsetValue}
         onSnapToItem={(index) => {
           setActiveSlide(index);
-
-          // pause all videos except the current one
-          Object.keys(videoRefs.current).forEach((key) => {
-            const ref = videoRefs.current[key];
-            if (ref && ref.pauseAsync && key !== index.toString()) {
-              ref.pauseAsync();
-            }
-          });
         }}
         renderItem={({ item, index }) => (
-          <View style={styles.slide}>
-            {item.media_type === "image" && (
+          <Pressable style={styles.slide} onPress={item.media_type !== 'video' && item.file_path ? () => handleBannerPress(item) : undefined}>
+            {item.media_type === "image" && item.file_path && (
               <Image source={{ uri: item.file_path }} style={styles.banner} />
             )}
 
-            {item.media_type === "video" && (
-              <Video
-                ref={(ref) => {
-                  if (ref) {
-                    videoRefs.current[index.toString()] = ref;
-                  }
-                }}
-                source={{ uri: item.file_path }}
-                style={styles.banner}
-                useNativeControls
-                resizeMode="cover"
-                isLooping
-                shouldPlay={activeSlide === index}
-              />
+            {item.media_type === "video" && item.file_path && (
+              <VideoItem item={item} index={index} activeSlide={activeSlide} />
             )}
 
-            {item.media_type === "youtube" && (
+            {item.media_type === "youtube" && item.file_path && getYouTubeId(item.file_path) && (
               <YoutubePlayer
                 height={160}
                 play={activeSlide === index}
                 videoId={getYouTubeId(item.file_path)}
               />
             )}
-          </View>
+          </Pressable>
         )}
       />
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   carouselContainer: {
-    height: 160,
+    height: 200,
     marginTop: 30,
     paddingLeft: 20,
     paddingRight: 20,
@@ -129,11 +137,20 @@ const styles = StyleSheet.create({
   banner: {
     width: "100%",
     height: 160,
-    borderRadius: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   slide: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  paginationContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
 });

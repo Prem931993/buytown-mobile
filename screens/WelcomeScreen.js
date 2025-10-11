@@ -73,17 +73,12 @@ export default function WelcomeScreen() {
  }, [])
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="black" />
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       {/* Top Image */}
-      
-      
-
       {/* Text Content */}
       {isLogin ? <>
-        
       </>
       :  
-    
         <View style={styles.content}>
           <Image
           source={require('./../assets/welcomeScreenImg.png')} // replace with your image path
@@ -100,22 +95,10 @@ export default function WelcomeScreen() {
           <TouchableOpacity
             style={styles.getStartedBtn}
             onPress={() => navigation.navigate('Login')}
-            
           >
             <Text style={styles.getStartedText}>Get Started</Text>
           </TouchableOpacity>
 
-          {/* Login Link */}
-          {/* <Text style={styles.loginText}>
-            Already have an account?{' '}
-            <Text
-              // onPress={() => navigation.navigate('Login')}
-              style={styles.loginLink}
-              onPress={() => Linking.openURL('tel:+919566999793')}
-            >
-              Login
-            </Text>
-          </Text> */}
           <Text
             style={styles.loginText}
             onPress={() => Linking.openURL('tel:+919566999793')}

@@ -237,7 +237,7 @@ export default function HomeScreen() {
       >
         <HeaderBar />
         <Categories />
-        <BannerCarousel />
+        <BannerCarousel navigation={navigation} />
 
         {/* Top Selling Products */}
         <View style={styles.productWrap}>

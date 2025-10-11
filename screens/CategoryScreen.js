@@ -407,7 +407,7 @@ export default function CategoryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="black" />
+      <StatusBar barStyle="light-content" backgroundColor="black" />
       <InnerHeader />
       <View style={styles.row}>
         {/* Sidebar */}

@@ -153,7 +153,7 @@ export default function CartScreen({ navigation }) {
   };
 
   const renderCartItem = ({ item }) => (
-    <View style={styles.cartItem}>
+    <TouchableOpacity style={styles.cartItem} onPress={() => navigation.navigate('ProductDetailsScreen', { product: { id: item.product_id } })}>
       <Image source={{ uri: item.images[0]?.path }} style={styles.productImage} />
       <View style={styles.itemDetails}>
         <Text style={styles.productName} numberOfLines={2}>{item.product_name}</Text>
@@ -186,7 +186,7 @@ export default function CartScreen({ navigation }) {
       )}>
         <Icon name="trash-outline" size={24} color="#f44336" />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderEmptyCart = () => (
