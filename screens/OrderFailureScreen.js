@@ -12,11 +12,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import InnerHeader from './../components/InnerHeader';
 
-export default function OrderSuccessScreen({ route, navigation }) {
+export default function OrderFailureScreen({ route, navigation }) {
   const { order } = route.params;
 
   const shippingAddress = order.shippingAddress || (order.shipping_address ? JSON.parse(order.shipping_address) : {});
   const billingAddress = order.billingAddress || (order.billing_address ? JSON.parse(order.billing_address) : {});
+
+  const isCancelled = order.status === 'cancelled';
 
   const getOrderDate = () => new Date(order.orderDate || order.order_date).toLocaleDateString();
   const getPaymentMethod = () => (order.paymentMethod || order.payment_method || '').replace('_', ' ').toUpperCase();
@@ -50,14 +52,17 @@ export default function OrderSuccessScreen({ route, navigation }) {
     <SafeAreaView style={styles.container} edges={['top']}>
       <InnerHeader showSearch={false} showBackButton={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Success Icon and Message */}
-        <View style={styles.successSection}>
+        {/* Failure Icon and Message */}
+        <View style={styles.failureSection}>
           <View style={styles.iconContainer}>
-            <Icon name="checkmark-circle" size={80} color="#4CAF50" />
+            <Icon name={isCancelled ? "close-circle-outline" : "close-circle"} size={80} color={isCancelled ? "#f39c12" : "#F44336"} />
           </View>
-          <Text style={styles.successTitle}>Order Placed Successfully!</Text>
-          <Text style={styles.successSubtitle}>
-            Thank you for shopping with BuyTown. Your order has been confirmed.
+          <Text style={styles.failureTitle}>{isCancelled ? 'Order Cancelled' : 'Order Failed'}</Text>
+          <Text style={styles.failureSubtitle}>
+            {isCancelled 
+              ? 'Your order has been cancelled as per request.' 
+              : 'Unfortunately, your order could not be processed. Please try again or contact support.'
+            }
           </Text>
         </View>
 
@@ -168,7 +173,7 @@ export default function OrderSuccessScreen({ route, navigation }) {
               routes: [{ name: 'MainTabs', params: { screen: 'Account' } }],
             })}
           >
-            <Text style={styles.secondaryButtonText}>View My Orders</Text>
+            <Text style={styles.secondaryButtonText}>View Orders</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -185,7 +190,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  successSection: {
+  failureSection: {
     alignItems: 'center',
     backgroundColor: '#fff',
     padding: 30,
@@ -200,14 +205,14 @@ const styles = StyleSheet.create({
   iconContainer: {
     marginBottom: 20,
   },
-  successTitle: {
+  failureTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
     marginBottom: 10,
   },
-  successSubtitle: {
+  failureSubtitle: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
@@ -248,7 +253,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   statusText: {
-    color: '#4CAF50',
+    color: '#F44336',
   },
   totalRow: {
     borderTopWidth: 1,

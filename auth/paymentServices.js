@@ -12,7 +12,6 @@ export const createCashfreeOrder = async (orderData, apiToken, accessTokens) => 
         'Content-Type': 'application/json',
       },
     });
-
     return response.data;
   } catch (error) {
     console.error("Error creating Cashfree order:", error.response?.data || error.message);
@@ -25,14 +24,13 @@ export const createCashfreeOrder = async (orderData, apiToken, accessTokens) => 
 // Get payment details
 export const getPaymentDetails = async (orderId, apiToken, accessTokens) => {
   try {
-    const response = await axios.get(`${API_URL}/api/v1/payments/cashfree/payment/${orderId}`, {
+    const response = await axios.get(`${API_URL}/api/v1/payments/cashfree/verify/${orderId}`, {
       headers: {
         Authorization: `Bearer ${apiToken}`,
         'X-User-Token': `Bearer ${accessTokens}`,
         'Content-Type': 'application/json',
       },
     });
-
     return response.data;
   } catch (error) {
     console.error("Error getting payment details:", error.response?.data || error.message);
@@ -100,6 +98,23 @@ export const createUPILinkSession = async (paymentSessionId) => {
     return response.data;
   } catch (error) {
     console.error("Error creating UPI link session:", error.response?.data || error.message);
+    throw error;
+  }
+};
+
+// Get order details
+export const getOrderDetails = async (orderId, apiToken, accessTokens) => {
+  try {
+    const response = await axios.get(`${API_URL}/api/v1/orders/details/${orderId}`, {
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'X-User-Token': `Bearer ${accessTokens}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error getting order details:", error.response?.data || error.message);
     throw error;
   }
 };

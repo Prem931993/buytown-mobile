@@ -151,23 +151,6 @@ export default function PinEntryScreen({ navigation }) {
     }
   };
 
-  const handleForgot = () => {
-    navigation.navigate('ForgotPassword');
-  }
-
-  useEffect(()=> {
-    console.log("otp", otp)
-    if(otp) {
-      console.log("otp", otp)
-    }
-  }, [otp])
-
-  useEffect(()=> {
-    if(otpCode) {
-      console.log("otpCode", otpCode)
-    }
-  }, [otpCode])
-
   return (
     <View style={styles.container}>
       {/* <StatusBar barStyle="light-content" backgroundColor="black" /> */}

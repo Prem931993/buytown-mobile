@@ -412,7 +412,8 @@ export default function ProductDetailsScreen({ route, navigation }) {
 
           <TouchableOpacity
             style={styles.buyNowBtn}
-            onPress={() => navigation.navigate('Cart', { screen: 'CheckoutScreen', params: { buyNowProduct: productDetails, quantity } })}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Cart', params: { screen: 'CheckoutScreen', params: { buyNowProduct: productDetails, quantity } } })}
+            disabled={loading}
           >
             <Text style={styles.buyNowText}>Buy Now</Text>
           </TouchableOpacity>
