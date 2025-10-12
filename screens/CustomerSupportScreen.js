@@ -6,12 +6,13 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
+  Modal,
   Linking,
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
+import * as DocumentPicker from 'expo-document-picker';
 import InnerHeader from '../components/InnerHeader';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppContext } from '../ContextAPI/ContextAPI';
@@ -19,10 +20,15 @@ import { AppContext } from '../ContextAPI/ContextAPI';
 export default function CustomerSupportScreen({ navigation }) {
   const { apiToken, accessTokens } = useContext(AppContext);
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
+  const [attachments, setAttachments] = useState([]);
   const [generalSettings, setGeneralSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
 
   const fetchGeneralSettings = async () => {
     try {
@@ -46,15 +52,70 @@ export default function CustomerSupportScreen({ navigation }) {
     fetchGeneralSettings();
   }, []);
 
-  const handleSubmit = () => {
-    if (!name || !email || !message) {
-      Alert.alert('Error', 'Please fill all fields');
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        multiple: true,
+      });
+      if (result.canceled) return;
+      setAttachments(prev => [...prev, ...result.assets]);
+    } catch (error) {
+      console.error('Error picking document:', error);
+    }
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const showModal = (title, message) => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalVisible(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!name || !subject || !message) {
+      showModal('Error', 'Please fill all required fields');
       return;
     }
-    Alert.alert('Success', 'Your enquiry has been submitted');
-    setName('');
-    setEmail('');
-    setMessage('');
+    setSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('subject', subject);
+      formData.append('message', message);
+      attachments.forEach((attachment, index) => {
+        formData.append('attachments', {
+          uri: attachment.uri,
+          name: attachment.name,
+          type: attachment.mimeType,
+        });
+      });
+
+      const response = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/notifications/support-email`, formData, {
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessTokens}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        showModal('Success', 'Your enquiry has been submitted');
+        setName('');
+        setSubject('');
+        setMessage('');
+        setAttachments([]);
+      } else {
+        showModal('Error', 'Failed to submit enquiry');
+      }
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      showModal('Error', 'Failed to submit enquiry');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const contactDetails = {
@@ -102,17 +163,16 @@ export default function CustomerSupportScreen({ navigation }) {
             />
           </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>Subject *</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
+              placeholder="Enter subject"
+              value={subject}
+              onChangeText={setSubject}
             />
           </View>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Message</Text>
+            <Text style={styles.label}>Message *</Text>
             <TextInput
               style={[styles.input, styles.messageInput]}
               placeholder="Enter your message"
@@ -121,8 +181,39 @@ export default function CustomerSupportScreen({ navigation }) {
               multiline
             />
           </View>
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitText}>Submit Enquiry</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Attachments</Text>
+            <TouchableOpacity style={styles.attachButton} onPress={pickDocument}>
+              <Icon name="attach-outline" size={20} color="#000" />
+              <Text style={styles.attachText}>
+                {attachments.length > 0 ? `${attachments.length} file(s) selected` : 'Select files'}
+              </Text>
+            </TouchableOpacity>
+            {attachments.length > 0 && (
+              <View style={styles.attachmentsList}>
+                {attachments.map((file, index) => (
+                  <View key={index} style={styles.attachmentContainer}>
+                    <Text style={styles.attachmentItem}>
+                      {file.name}
+                    </Text>
+                    <TouchableOpacity onPress={() => removeAttachment(index)} style={styles.removeButton}>
+                      <Icon name="close-circle" size={20} color="#eb1f2a" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+          <TouchableOpacity
+            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.submitText}>Submit Enquiry</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -233,6 +324,26 @@ export default function CustomerSupportScreen({ navigation }) {
         </View>
       </View>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -285,11 +396,49 @@ const styles = StyleSheet.create({
     height: 100,
     textAlignVertical: 'top',
   },
+  attachButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    backgroundColor: '#f9f9f9',
+  },
+  attachText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+  },
+  attachmentsList: {
+    marginTop: 10,
+  },
+  attachmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  attachmentItem: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  removeButton: {
+    padding: 5,
+  },
   submitButton: {
     backgroundColor: '#000000',
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#ccc',
   },
   submitText: {
     color: '#fff',
@@ -357,9 +506,45 @@ contactLabel: {
   marginBottom: 2,
 },
 
-contactValue: {
-  fontSize: 15,
-  color: '#333',
-  fontWeight: '500',
-},
+  contactValue: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  modalMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#666',
+  },
+  modalButton: {
+    backgroundColor: '#eb1f2a',
+    paddingHorizontal: 30,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });

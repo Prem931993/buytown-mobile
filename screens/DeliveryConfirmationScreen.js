@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import {
   View, Text, StyleSheet, FlatList,
   Image, TouchableOpacity, Modal, TextInput, Alert, Keyboard, TouchableWithoutFeedback
@@ -7,6 +7,7 @@ import {
 
 // import { Checkbox } from 'react-native-paper';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { AppContext } from '../ContextAPI/ContextAPI';
 
 const PRIMARY_GREEN = '#8BC34A';
 const PRIMARY_BLACK = '#000000';
@@ -15,6 +16,7 @@ const SECONDARY_LIGHT_GRAY = '#F5F5F5';
 
 export default function DeliveryConfirmationScreen({ route, navigation }) {
   const order = route.params?.item;
+  const { apiToken, accessTokens, logout } = useContext(AppContext);
 
   const products = order?.items ? order.items.map(item => ({
     id: item.sku_code,
@@ -30,23 +32,116 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [onSuccessAction, setOnSuccessAction] = useState(null);
 
 
   const [checked, setChecked] = React.useState(false);
 
-  const handleComplete = (otp) => {
-    if (enteredOtp.length !== 6) {
-      Alert.alert('Invalid OTP', 'Please enter a valid 6-digit OTP.');
-      return;
-    }
-    if (enteredOtp == otp) {
-      setOtpModalVisible(false);
-      setEnteredOtp('');
-      navigation.navigate('DeliverySuccessScreen', { order });
-    } else {
-      Alert.alert('Invalid OTP', 'Please enter correct OTP.');
+  const rejectDelivery = async (orderId, reason) => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/orders/${orderId}/delivery-reject`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ rejection_reason: reason }),
+        }
+      );
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout(navigation);
+          return;
+        }
+        const json = await response.json();
+        if (json.error === "Invalid or expired API token." || json.error === "jwt malformed") {
+          logout(navigation);
+          return;
+        } else {
+          setErrorMessage(json.error || 'Failed to reject delivery');
+          setErrorModalVisible(true);
+          return;
+        }
+      }
+
+      const json = await response.json();
+      if (json.success) {
+        setSuccessMessage('Delivery rejected successfully.');
+        setOnSuccessAction(() => () => navigation.goBack());
+        setSuccessModalVisible(true);
+      } else {
+        setErrorMessage('API returned unsuccessful response');
+        setErrorModalVisible(true);
+      }
+    } catch (err) {
+      setErrorMessage(err.message);
+      setErrorModalVisible(true);
     }
   };
+
+  const completeDelivery = async (orderId, otp = null) => {
+    try {
+
+      const body = otp ? JSON.stringify({ otp }) : JSON.stringify({});
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/orders/${orderId}/delivery-complete`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+          body,
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout(navigation);
+          return;
+        }
+        const json = await response.json();
+        if (json.error === "Invalid or expired API token." || json.error === "jwt malformed") {
+          logout(navigation);
+          return;
+        } else {
+          setErrorMessage(json.error || 'Failed to complete delivery');
+          setErrorModalVisible(true);
+          return;
+        }
+      }
+
+      const json = await response.json();
+      if (json.success) {
+        if (otp) {
+          // OTP verified, delivery completed
+          setSuccessMessage('Delivery completed successfully.');
+          setOnSuccessAction(() => () => navigation.navigate('DeliverySuccessScreen', { order }));
+          setSuccessModalVisible(true);
+        } else {
+          // OTP sent, now show modal
+          setOtpModalVisible(true);
+        }
+      } else {
+        setErrorMessage('API returned unsuccessful response');
+        setErrorModalVisible(true);
+      }
+    } catch (err) {
+
+      setErrorMessage(err.message);
+      setErrorModalVisible(true);
+    }
+  };
+
+
 
   const toggleCheckbox = (id) => {
     setCheckedItems(prev => ({
@@ -108,10 +203,7 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
       <TouchableOpacity
         style={[styles.confirmBtn, { backgroundColor: isConfirmEnabled ? PRIMARY_GREEN : '#a5d6a7' }]}
         disabled={!isConfirmEnabled}
-        onPress={() => {
-          setSelectedOrder();
-          setOtpModalVisible(true);
-        }}
+        onPress={() => completeDelivery(order.id)}
       >
         <Text style={styles.confirmText}>CONFIRM</Text>
       </TouchableOpacity>
@@ -161,7 +253,16 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.verifyBtn]}
-                onPress={() => handleComplete('123456')}
+                onPress={() => {
+                  if (enteredOtp.length !== 6) {
+                    setErrorMessage('Please enter a valid 6-digit OTP.');
+                    setErrorModalVisible(true);
+                    return;
+                  }
+                  setOtpModalVisible(false);
+                  setEnteredOtp('');
+                  completeDelivery(order.id, enteredOtp);
+                }}
               >
                 <Text style={styles.verifyBtnText}>Verify</Text>
               </TouchableOpacity>
@@ -217,13 +318,13 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
                   style={[styles.modalBtn, styles.rejectConfirmBtn]}
                   onPress={() => {
                     if (rejectionReason.trim() === '') {
-                      Alert.alert('Error', 'Please provide a reason for rejection.');
+                      setErrorMessage('Please provide a reason for rejection.');
+                      setErrorModalVisible(true);
                       return;
                     }
                     setRejectModalVisible(false);
                     setRejectionReason('');
-                    Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
-                    navigation.goBack();
+                    rejectDelivery(order.id, rejectionReason);
                   }}
                 >
                   <Text style={styles.rejectConfirmBtnText}>Reject</Text>
@@ -233,8 +334,79 @@ export default function DeliveryConfirmationScreen({ route, navigation }) {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Ionicons name="alert-circle" size={40} color={SECONDARY_RED} />
+              <Text style={styles.modalTitle}>Error</Text>
+              <Text style={styles.modalSubtitle}>{errorMessage}</Text>
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.okBtn]}
+                onPress={() => setErrorModalVisible(false)}
+              >
+                <Text style={styles.okBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={successModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setSuccessModalVisible(false);
+          if (onSuccessAction) onSuccessAction();
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => {
+                setSuccessModalVisible(false);
+                if (onSuccessAction) onSuccessAction();
+              }}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            <View style={styles.modalHeader}>
+              <Ionicons name="checkmark-circle" size={40} color={PRIMARY_GREEN} />
+              <Text style={styles.modalTitle}>Success</Text>
+              <Text style={styles.modalSubtitle}>{successMessage}</Text>
+            </View>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.okBtn]}
+                onPress={() => {
+                  setSuccessModalVisible(false);
+                  if (onSuccessAction) onSuccessAction();
+                }}
+              >
+                <Text style={styles.okBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
-    
+
   );
 }
 
@@ -452,6 +624,15 @@ const styles = StyleSheet.create({
     backgroundColor: SECONDARY_RED,
   },
   rejectConfirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  okBtn: {
+    backgroundColor: PRIMARY_GREEN,
+    flex: 1,
+  },
+  okBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

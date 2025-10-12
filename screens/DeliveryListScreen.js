@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppContext } from '../ContextAPI/ContextAPI';
+import CustomDropdown from '../components/CustomDropdown';
 
 const statusColors = {
   approved: '#3498db',
@@ -39,7 +40,20 @@ export default function DeliveryListScreen() {
   const [error, setError] = useState(null);
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedReason, setSelectedReason] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const rejectionReasons = [
+    { value: 'customer_not_available', label: 'Customer not available', message: 'The customer was not available at the delivery address.' },
+    { value: 'wrong_address', label: 'Wrong address', message: 'The provided delivery address was incorrect.' },
+    { value: 'product_damaged', label: 'Product damaged', message: 'The product was damaged during transit.' },
+    { value: 'payment_issue', label: 'Payment issue', message: 'There was an issue with the payment for the delivery.' },
+    { value: 'others', label: 'Others' },
+  ];
 
   useEffect(() => {
     if (apiToken && accessTokens) {
@@ -62,13 +76,20 @@ export default function DeliveryListScreen() {
           },
         }
       );
+      let json;
+      try {
+        const text = await response.text();
+        json = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid response from server: ${e.message}`);
+      }
+
       if (!response.ok) {
         if (response.status === 401) {
           // Clear storage and regenerate tokens for 401 Unauthorized
           logout(navigation);
           return;
         }
-        const json = await response.json();
         if (json.error === "Invalid or expired API token." || json.error === "jwt malformed") {
           if (retryCount < 1) {
             // Retry once after a short delay
@@ -83,8 +104,6 @@ export default function DeliveryListScreen() {
           throw new Error('Failed to fetch delivery data');
         }
       }
-
-      const json = await response.json();
       if (json.success) {
         setOrders(json.data.orders);
       } else {
@@ -94,6 +113,55 @@ export default function DeliveryListScreen() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const rejectDelivery = async (orderId, reason, setRejectModalVisible) => {
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/v1/orders/${orderId}/delivery-reject`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ rejection_reason: reason }),
+        }
+      );
+      let json;
+      try {
+        const text = await response.text();
+        json = JSON.parse(text);
+      } catch (e) {
+        throw new Error(`Invalid response from server: ${e.message}`);
+      }
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          logout(navigation);
+          return;
+        }
+        if (json.error === "Invalid or expired API token." || json.error === "jwt malformed") {
+          logout(navigation);
+          return;
+        } else {
+          throw new Error('Failed to reject delivery');
+        }
+      }
+      if (json.success) {
+        setSuccessMessage('Delivery rejected successfully.');
+        setSuccessModalVisible(true);
+        fetchDeliveryData(); // Refresh the list
+        setRejectModalVisible(false);
+      } else {
+        throw new Error('API returned unsuccessful response');
+      }
+    } catch (err) {
+      setErrorMessage(err.message);
+      setErrorModalVisible(true);
+      setRejectModalVisible(false);
     }
   };
 
@@ -212,6 +280,7 @@ export default function DeliveryListScreen() {
               style={styles.rejectBtn}
               onPress={() => {
                 setSelectedItem(item);
+                setSelectedReason('');
                 setRejectReason('');
                 setRejectModalVisible(true);
               }}
@@ -298,6 +367,7 @@ export default function DeliveryListScreen() {
                 style={styles.closeIcon}
                 onPress={() => {
                   setRejectModalVisible(false);
+                  setSelectedReason('');
                   setRejectReason('');
                 }}
               >
@@ -309,20 +379,35 @@ export default function DeliveryListScreen() {
                 <Text style={styles.modalSubtitle}>Please provide a reason for rejection</Text>
               </View>
               <View style={styles.reasonContainer}>
-                <TextInput
-                  style={styles.reasonInput}
-                  placeholder="Enter reason for rejection"
-                  value={rejectReason}
-                  onChangeText={setRejectReason}
-                  multiline
-                  numberOfLines={4}
+                <CustomDropdown
+                  selectedValue={selectedReason}
+                  onValueChange={(value) => {
+                    setSelectedReason(value);
+                    if (value !== 'others') {
+                      setRejectReason('');
+                    }
+                  }}
+                  items={rejectionReasons}
+                  placeholder="Select rejection reason"
+                  style={{ marginBottom: 20 }}
                 />
+                {selectedReason === 'others' && (
+                  <TextInput
+                    style={styles.reasonInput}
+                    placeholder="Enter reason for rejection"
+                    value={rejectReason}
+                    onChangeText={setRejectReason}
+                    multiline
+                    numberOfLines={4}
+                  />
+                )}
               </View>
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.cancelBtn]}
                   onPress={() => {
                     setRejectModalVisible(false);
+                    setSelectedReason('');
                     setRejectReason('');
                   }}
                 >
@@ -331,15 +416,20 @@ export default function DeliveryListScreen() {
                 <TouchableOpacity
                   style={[styles.modalBtn, styles.rejectConfirmBtn]}
                   onPress={() => {
-                    if (rejectReason.trim() === '') {
-                      Alert.alert('Error', 'Please provide a reason for rejection.');
+                    if (!selectedReason) {
+                      setErrorMessage('Please select a reason for rejection.');
+                      setErrorModalVisible(true);
                       return;
                     }
-                    setRejectModalVisible(false);
+                    if (selectedReason === 'others' && rejectReason.trim() === '') {
+                      setErrorMessage('Please provide a reason for rejection.');
+                      setErrorModalVisible(true);
+                      return;
+                    }
+                    const reasonToSend = selectedReason === 'others' ? rejectReason : rejectionReasons.find(r => r.value === selectedReason)?.message || selectedReason;
+                    rejectDelivery(selectedItem.id, reasonToSend, setRejectModalVisible);
+                    setSelectedReason('');
                     setRejectReason('');
-                    Alert.alert('Delivery Rejected', 'The delivery has been rejected.');
-                    // Optionally refresh the list or update the order status
-                    fetchDeliveryData();
                   }}
                 >
                   <Text style={styles.rejectConfirmBtnText}>Reject</Text>
@@ -348,6 +438,50 @@ export default function DeliveryListScreen() {
             </View>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      <Modal
+        visible={successModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="checkmark-circle" size={40} color="#8BC34A" />
+              <Text style={styles.modalTitle}>Success</Text>
+            </View>
+            <Text style={styles.modalSubtitle}>{successMessage}</Text>
+            <View style={[styles.modalButtons, styles.modalButtonsSingle]}>
+              <TouchableOpacity style={[styles.modalBtn, styles.successBtn]} onPress={() => setSuccessModalVisible(false)}>
+                <Text style={styles.successBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="close-circle" size={40} color="#E53935" />
+              <Text style={styles.modalTitle}>Error</Text>
+            </View>
+            <Text style={styles.modalSubtitle}>{errorMessage}</Text>
+            <View style={[styles.modalButtons, styles.modalButtonsSingle]}>
+              <TouchableOpacity style={[styles.modalBtn, styles.errorBtn]} onPress={() => setErrorModalVisible(false)}>
+                <Text style={styles.errorBtnText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Bottom Bar */}
@@ -699,6 +833,22 @@ btnTextDark: {
     backgroundColor: '#E53935',
   },
   rejectConfirmBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  successBtn: {
+    backgroundColor: '#8BC34A',
+  },
+  successBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  errorBtn: {
+    backgroundColor: '#E53935',
+  },
+  errorBtnText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

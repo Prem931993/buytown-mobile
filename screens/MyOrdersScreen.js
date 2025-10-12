@@ -29,7 +29,6 @@ export default function MyOrdersScreen({ navigation }) {
         },
       });
       if (response.data.statusCode === 200) {
-        console.log("response.data", response.data)
         setOrders(response.data.orders || []);
       }
     } catch (error) {
@@ -52,7 +51,7 @@ export default function MyOrdersScreen({ navigation }) {
   const renderOrderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.orderCard}
-      onPress={() => navigation.navigate('OrderDetailScreen', { order: item })}
+      onPress={() => navigation.navigate('OrderDetailScreen', { orderId: item.id })}
       activeOpacity={0.8}
     >
       <View style={styles.orderTopRow}>

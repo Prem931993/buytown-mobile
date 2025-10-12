@@ -92,15 +92,11 @@ export default function PinEntryScreen({ navigation }) {
           await onGenerateToken(true);
           // Retry the API call after token regeneration
           await handleContinue();
+        } else {
+          // Handle other errors, e.g., show error modal
+          setErrorMessage('Login failed. Please try again.');
+          setErrorModalVisible(true);
         }
-        // For testing, even if API fails, navigate to MainTabs and set dummy data
-        await AsyncStorage.setItem("accessToken", "dummy");
-        await AsyncStorage.setItem("userId", "dummy");
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-        // throw error;
       }
 
 

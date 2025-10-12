@@ -7,7 +7,7 @@ import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import InnerHeader from './../components/InnerHeader';
-import { createCashfreeOrder, createUPIQRSession, createUPILinkSession, getPaymentDetails } from '../auth/paymentServices';
+import { createCashfreeOrder, createUPILinkSession, getOrderDetails } from '../auth/paymentServices';
 
 // Conditionally import WebView only for native platforms
 let WebView;
@@ -78,11 +78,20 @@ export default function CheckoutScreen({ navigation, route }) {
   const [isMapFullScreen, setIsMapFullScreen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [showWebView, setShowWebView] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState('');
   const [qrData, setQrData] = useState(null);
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [pollingInterval, setPollingInterval] = useState(null);
+  const [showWebView, setShowWebView] = useState(false);
+
+  const handlePaymentNavigation = async (navState) => {
+    const url = navState.url;
+    if (url.includes('success') || url.includes('thankyou') || url.includes('payment_status=SUCCESS')) {
+      setShowWebView(false);
+      navigation.navigate('OrderProcessingScreen', { order: currentOrder });
+    } else if (url.includes('failure') || url.includes('failed') || url.includes('payment_status=FAILED')) {
+      setShowWebView(false);
+      Alert.alert('Payment Failed', 'Please try again or choose a different payment method.');
+    }
+  };
 
   // Haversine formula to calculate distance between two coordinates
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -134,39 +143,41 @@ export default function CheckoutScreen({ navigation, route }) {
   useEffect(() => {
     const fetchCart = async () => {
       if (buyNowProduct) {
-        // Handle buy now product
-        const quantity = buyNowQuantity || 1;
-        const buyNowItem = {
-          cart_item_id: `buy_now_${buyNowProduct.id}`,
-          product_id: buyNowProduct.id,
-          product_name: buyNowProduct.name,
-          price: buyNowProduct.price,
-          quantity: quantity,
-          images: buyNowProduct.images || [],
-        };
-        setCart([buyNowItem]);
-        setTotal(buyNowProduct.price * quantity);
-        setCartLoading(false);
-      } else {
-        // Fetch regular cart
+        // Add buy now product to cart
         try {
-          const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/cart`, {
+          await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/cart/add`, {
+            product_id: buyNowProduct.id,
+            quantity: buyNowQuantity || 1
+          }, {
             headers: {
               Authorization: `Bearer ${apiToken}`,
               'X-User-Token': `Bearer ${accessTokens}`,
               'Content-Type': 'application/json',
             },
           });
-          if (response.data.statusCode === 200) {
-            setCart(response.data.cart_items || []);
-            setTotal(response.data.summary?.total_amount || 0);
-          }
         } catch (error) {
-          console.error('Cart fetch error:', error);
-          Alert.alert('Error', 'Failed to load cart items');
-        } finally {
-          setCartLoading(false);
+          console.error('Add to cart error:', error);
+          Alert.alert('Error', 'Failed to add item to cart');
         }
+      }
+      // Fetch cart (regular or updated with buy now)
+      try {
+        const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/cart`, {
+          headers: {
+            Authorization: `Bearer ${apiToken}`,
+            'X-User-Token': `Bearer ${accessTokens}`,
+            'Content-Type': 'application/json',
+          },
+        });
+        if (response.data.statusCode === 200) {
+          setCart(response.data.cart_items || []);
+          setTotal(response.data.summary?.total_amount || 0);
+        }
+      } catch (error) {
+        console.error('Cart fetch error:', error);
+        Alert.alert('Error', 'Failed to load cart items');
+      } finally {
+        setCartLoading(false);
       }
     };
 
@@ -210,43 +221,7 @@ export default function CheckoutScreen({ navigation, route }) {
 
   }, [apiToken, accessTokens, buyNowProduct, buyNowQuantity]);
 
-  useEffect(() => {
-    if ((showWebView && paymentMethod === 'upi_qr' && currentOrder) || (paymentMethod === 'upi_link' && currentOrder)) {
-      const interval = setInterval(async () => {
-        try {
-          const response = await getPaymentDetails(currentOrder.id, apiToken, accessTokens);
-          if (response.data && response.data.payment_status === 'paid') {
-            clearInterval(interval);
-            setShowWebView(false);
-            navigation.navigate('OrderSuccessScreen', { order: currentOrder });
-          } else if (response.data && response.data.payment_status === 'failed') {
-            clearInterval(interval);
-            setShowWebView(false);
-            Alert.alert('Payment Failed', 'Payment was not successful. Please try again.');
-          }
-        } catch (error) {
-          console.error('Polling payment status error:', error);
-        }
-      }, 5000); // 5 seconds
 
-      setPollingInterval(interval);
-
-      // Timeout after 5 minutes
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        setShowWebView(false);
-        Alert.alert('Payment Timeout', 'Payment verification timed out. Please check your payment status.');
-      }, 300000); // 5 minutes
-
-      return () => {
-        clearInterval(interval);
-        clearTimeout(timeout);
-      };
-    } else if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
-    }
-  }, [showWebView, paymentMethod, currentOrder, apiToken, accessTokens, navigation]);
 
   const getCurrentLocation = async () => {
     try {
@@ -416,99 +391,11 @@ export default function CheckoutScreen({ navigation, route }) {
     }
   };
 
-  const handlePaymentNavigation = (navState) => {
-    const { url } = navState;
-    if (url.includes('success') || url.includes('thankyou')) {
-      setShowWebView(false);
-      navigation.navigate('OrderSuccessScreen', { order: currentOrder });
-    } else if (url.includes('failure') || url.includes('cancel')) {
-      setShowWebView(false);
-      Alert.alert('Payment Failed', 'Payment was not successful. Please try again.');
-    }
-  };
 
 
 
-  const initiateCashfreePayment = async (orderId) => {
-    if (!userProfile) {
-      Alert.alert('Error', 'User profile not loaded. Please try again.');
-      return;
-    }
 
-    try {
-      const orderData = {
-        order_id: String(orderId),
-        order_amount: String(total.toFixed(2)),
-        order_currency: "INR",
-        customer_details: {
-          customer_id: String(userProfile.id) || 'user_' + Date.now(),
-          customer_email: userProfile.email || 'test@example.com',
-          customer_phone: userProfile.phone_number || '9876543210',
-        },
-        order_meta: {
-          notify_url: `${process.env.EXPO_PUBLIC_API_URL}/api/v1/payments/cashfree/webhook`,
-        },
-      };
 
-      const response = await createCashfreeOrder(orderData, apiToken, accessTokens);
-
-      if (response.message === 'Cashfree order created successfully' && response.data.payment_session_id) {
-        let sessionId = response.data.payment_session_id;
-        // Clean sessionId if it ends with 'paymentpayment' (backend bug)
-        const paymentUrl = `https://sandbox.cashfree.com/pgapp/v2/payment?payment_session_id=${sessionId}`;
-        setPaymentUrl(paymentUrl);
-        setShowWebView(true);
-      } else {
-        Alert.alert('Error', 'Failed to initiate Cashfree payment or payment session not received');
-      }
-    } catch (error) {
-      console.error('Initiate Cashfree payment error:', error);
-      Alert.alert('Error', 'Failed to initiate payment');
-    }
-  };
-
-  const initiateUPIQRPayment = async (orderId) => {
-    if (!userProfile) {
-      Alert.alert('Error', 'User profile not loaded. Please try again.');
-      return;
-    }
-
-    try {
-      const orderData = {
-        order_id: String(orderId),
-        order_amount: String(total.toFixed(2)),
-        order_currency: "INR",
-        customer_details: {
-          customer_id: String(userProfile.id) || 'user_' + Date.now(),
-          customer_email: userProfile.email || 'test@example.com',
-          customer_phone: userProfile.phone_number || '9876543210',
-        },
-        order_meta: {
-          notify_url: `${process.env.EXPO_PUBLIC_API_URL}/api/v1/payments/cashfree/webhook`,
-        },
-      };
-
-      const response = await createCashfreeOrder(orderData, apiToken, accessTokens);
-
-      if (response.message === 'Cashfree order created successfully' && response.data.payment_session_id) {
-        let sessionId = response.data.payment_session_id;
-
-        const upiResponse = await createUPIQRSession(sessionId);
-
-        if (upiResponse.data && upiResponse.data.payload.qrcode) {
-          setPaymentUrl(upiResponse.data.payload.qrcode);
-          setShowWebView(true);
-        } else {
-          Alert.alert('Error', 'Failed to generate UPI QR code');
-        }
-      } else {
-        Alert.alert('Error', 'Failed to initiate UPI QR payment or session not received');
-      }
-    } catch (error) {
-      console.error('Initiate UPI QR payment error:', error);
-      Alert.alert('Error', 'Failed to initiate UPI QR payment');
-    }
-  };
 
   const initiateUPILinkPayment = async (orderId) => {
     if (!userProfile) {
@@ -540,8 +427,8 @@ export default function CheckoutScreen({ navigation, route }) {
 
         if (upiResponse.data && upiResponse.data.payload.web) {
           const upiLink = upiResponse.data.payload.web;
-        setPaymentUrl(upiLink);
-        setShowWebView(true);
+          setPaymentUrl(upiLink);
+          setShowWebView(true);
         } else {
           Alert.alert('Error', 'Failed to generate UPI Link');
         }
@@ -569,53 +456,7 @@ export default function CheckoutScreen({ navigation, route }) {
     }
     setLoading(true);
     try {
-    if (paymentMethod === 'cashfree') {
-      // Place the order first
-      const orderPayload = {
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: paymentMethod,
-        notes: notes,
-        delivery_distance: deliveryDistance,
-      };
-      const orderResponse = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/checkout`, orderPayload, {
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          'X-User-Token': `Bearer ${accessTokens}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (orderResponse.data.statusCode === 201) {
-        const order = orderResponse.data.order;
-        setCurrentOrder(order);
-        await initiateCashfreePayment(order.id);
-      } else {
-        Alert.alert('Error', orderResponse.data.message || 'Failed to place order');
-      }
-    } else if (paymentMethod === 'upi_qr') {
-      // Place the order first
-      const orderPayload = {
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: paymentMethod,
-        notes: notes,
-        delivery_distance: deliveryDistance,
-      };
-      const orderResponse = await axios.post(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/checkout`, orderPayload, {
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          'X-User-Token': `Bearer ${accessTokens}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      if (orderResponse.data.statusCode === 201) {
-        const order = orderResponse.data.order;
-        setCurrentOrder(order);
-        await initiateUPIQRPayment(order.id);
-      } else {
-        Alert.alert('Error', orderResponse.data.message || 'Failed to place order');
-      }
-    } else if (paymentMethod === 'upi_link') {
+    if (paymentMethod === 'upi_link') {
       // Place the order first
       const orderPayload = {
         shipping_address: shippingAddress,
@@ -655,7 +496,9 @@ export default function CheckoutScreen({ navigation, route }) {
         },
       });
       if (response.data.statusCode === 201) {
-        navigation.navigate('OrderSuccessScreen', { order: response.data.order });
+        const order = response.data.order;
+        const orderDetails = await getOrderDetails(order.id, apiToken, accessTokens);
+        navigation.navigate('OrderSuccessScreen', { order: orderDetails.order });
       } else {
         Alert.alert('Error', response.data.message || 'Failed to place order');
       }
@@ -1014,45 +857,48 @@ export default function CheckoutScreen({ navigation, route }) {
           {/* Payment Method */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment Method</Text>
+            <Text style={styles.sectionSubtitle}>Choose your preferred payment option</Text>
             <TouchableOpacity
-              style={[styles.paymentOption, paymentMethod === 'cash_on_delivery' && styles.selectedPayment]}
+              style={[styles.paymentCard, paymentMethod === 'cash_on_delivery' && styles.selectedPaymentCard]}
               onPress={() => setPaymentMethod('cash_on_delivery')}
             >
-              <View style={styles.paymentRow}>
-                <Icon name="cash-outline" size={24} color="#f67179" />
-                <Text style={styles.paymentText}>Cash on Delivery</Text>
+              <View style={styles.paymentCardContent}>
+                <View style={styles.radioContainer}>
+                  <Icon
+                    name={paymentMethod === 'cash_on_delivery' ? "radio-button-on" : "radio-button-off"}
+                    size={20}
+                    color={paymentMethod === 'cash_on_delivery' ? "#f67179" : "#ccc"}
+                  />
+                </View>
+                <View style={styles.iconContainer}>
+                  <Icon name="cash-outline" size={32} color="#f67179" />
+                </View>
+                <View style={styles.paymentDetails}>
+                  <Text style={styles.paymentText}>Cash on Delivery</Text>
+                  <Text style={styles.paymentSubtext}>Pay when you receive your order</Text>
+                </View>
               </View>
             </TouchableOpacity>
             {Platform.OS !== 'web' && (
               <TouchableOpacity
-                style={[styles.paymentOption, paymentMethod === 'cashfree' && styles.selectedPayment]}
-                onPress={() => setPaymentMethod('cashfree')}
-              >
-                <View style={styles.paymentRow}>
-                  <Icon name="card-outline" size={24} color="#f67179" />
-                  <Text style={styles.paymentText}>Cashfree</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            {Platform.OS !== 'web' && (
-              <TouchableOpacity
-                style={[styles.paymentOption, paymentMethod === 'upi_qr' && styles.selectedPayment]}
-                onPress={() => setPaymentMethod('upi_qr')}
-              >
-                <View style={styles.paymentRow}>
-                  <Icon name="qr-code-outline" size={24} color="#f67179" />
-                  <Text style={styles.paymentText}>UPI QR Code</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            {Platform.OS !== 'web' && (
-              <TouchableOpacity
-                style={[styles.paymentOption, paymentMethod === 'upi_link' && styles.selectedPayment]}
+                style={[styles.paymentCard, paymentMethod === 'upi_link' && styles.selectedPaymentCard]}
                 onPress={() => setPaymentMethod('upi_link')}
               >
-                <View style={styles.paymentRow}>
-                  <Icon name="link-outline" size={24} color="#f67179" />
-                  <Text style={styles.paymentText}>UPI Link</Text>
+                <View style={styles.paymentCardContent}>
+                  <View style={styles.radioContainer}>
+                  <Icon
+                    name={paymentMethod === 'upi_link' ? "radio-button-on" : "radio-button-off"}
+                    size={20}
+                    color={paymentMethod === 'upi_link' ? "#f67179" : "#ccc"}
+                  />
+                  </View>
+                  <View style={styles.iconContainer}>
+                    <Icon name="link-outline" size={32} color="#f67179" />
+                  </View>
+                  <View style={styles.paymentDetails}>
+                    <Text style={styles.paymentText}>UPI Payment</Text>
+                    <Text style={styles.paymentSubtext}>Instant payment via UPI apps</Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             )}
@@ -1095,31 +941,16 @@ export default function CheckoutScreen({ navigation, route }) {
       </Modal>
       <Modal visible={showWebView} animationType="slide" onRequestClose={() => setShowWebView(false)}>
         <View style={styles.paymentModalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowWebView(false)}>
-            <Icon name="close-outline" size={30} color="#fff" />
-          </TouchableOpacity>
-          {Platform.OS !== 'web' && WebView && (
-            <WebView
-              source={{ uri: paymentUrl }}
-              style={styles.webView}
-              onNavigationStateChange={handlePaymentNavigation}
-              onError={(syntheticEvent) => {
-                const { nativeEvent } = syntheticEvent;
-                console.error('WebView error: ', nativeEvent);
-              }}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              userAgent="Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36"
-              mixedContentMode="always"
-            />
-          )}
-          {Platform.OS === 'web' && (
-            <View style={styles.webViewPlaceholder}>
-              <Text style={styles.webViewPlaceholderText}>Payment WebView not supported on web</Text>
-            </View>
-          )}
+          <WebView
+            source={{ uri: paymentUrl }}
+            style={styles.webView}
+            onNavigationStateChange={handlePaymentNavigation}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
         </View>
       </Modal>
+
 
     </>
   );
@@ -1150,6 +981,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
+    marginBottom: 15,
+  },
+  sectionSubtitle: {
+    fontSize: 16,
+    color: '#666',
     marginBottom: 15,
   },
   orderList: {
@@ -1279,22 +1115,47 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontStyle: 'italic',
   },
-  selectedPayment: {
+  paymentCard: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  selectedPaymentCard: {
     borderWidth: 2,
     borderColor: '#f67179',
+    backgroundColor: '#fef7f8',
   },
-  paymentOption: {
-    backgroundColor: '#f8f9fa',
-    padding: 20,
-    borderRadius: 10,
+  paymentCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  paymentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  radioContainer: {
+    marginRight: 20,
   },
-  paymentText: { fontSize: 18, fontWeight: '600', color: '#333', marginLeft: 10 },
+  iconContainer: {
+    marginRight: 15,
+  },
+  paymentDetails: {
+    flex: 1,
+  },
+  paymentText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  paymentSubtext: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
   placeOrderBtn: {
     backgroundColor: '#000000',
     paddingVertical: 18,
