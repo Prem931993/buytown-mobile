@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 50,
   },
   successSection: {
     alignItems: 'center',

@@ -96,7 +96,15 @@ export default function ProfileScreen({ navigation }) {
       <InnerHeader showSearch={false} />
       <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          <Image source={require('./../assets/userImage.png')} style={styles.profileImage} />
+          {profile && profile.firstname && profile.lastname ? (
+            <View style={styles.initialsContainer}>
+              <Text style={styles.initialsText}>
+                {`${profile.firstname.charAt(0)}${profile.lastname.charAt(0)}`.toUpperCase()}
+              </Text>
+            </View>
+          ) : (
+            <Image source={require('./../assets/userImage.png')} style={styles.profileImage} />
+          )}
           <Text style={styles.subtitle}>Help us personalize your experience</Text>
         </View>
 
@@ -221,7 +229,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5'
+    backgroundColor: '#ffffff'
   },
   scrollContainer: {
     flexGrow: 1,
@@ -264,6 +272,22 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 3,
     borderColor: '#ffffff',
+  },
+  initialsContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 3,
+    borderColor: '#ffffff',
+  },
+  initialsText: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   subtitle: {
     fontSize: 16,

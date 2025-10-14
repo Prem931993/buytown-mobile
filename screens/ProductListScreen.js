@@ -300,6 +300,7 @@ export default function ProductListScreen({ route, navigation }) {
 
             <ScrollView style={styles.drawerScroll} showsVerticalScrollIndicator={false}>
               {/* Brand Section */}
+              {brands?.length > 0 && 
               <TouchableOpacity
                 style={styles.accordionHeader}
                 onPress={() => setIsBrandOpen(!isBrandOpen)}
@@ -311,6 +312,7 @@ export default function ProductListScreen({ route, navigation }) {
                   color="#666"
                 />
               </TouchableOpacity>
+              }
               {isBrandOpen && (
                 <View style={styles.tagContainer}>
                   {brands.map(brand => (
@@ -334,6 +336,7 @@ export default function ProductListScreen({ route, navigation }) {
               )}
 
               {/* Color Section */}
+              {filters.colors?.length > 0 && 
               <TouchableOpacity
                 style={styles.accordionHeader}
                 onPress={() => setIsColorOpen(!isColorOpen)}
@@ -345,6 +348,7 @@ export default function ProductListScreen({ route, navigation }) {
                   color="#666"
                 />
               </TouchableOpacity>
+              }
               {isColorOpen && (
                 <View style={styles.tagContainer}>
                   {filters.colors?.map(color => (
@@ -402,7 +406,7 @@ export default function ProductListScreen({ route, navigation }) {
               )}
 
               {/* Price Range Section */}
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={styles.accordionHeader}
                 onPress={() => setIsPriceOpen(!isPriceOpen)}
               >
@@ -430,7 +434,7 @@ export default function ProductListScreen({ route, navigation }) {
                     keyboardType="numeric"
                   />
                 </View>
-              )}
+              )} */}
             </ScrollView>
 
             <View style={styles.buttonContainer}>

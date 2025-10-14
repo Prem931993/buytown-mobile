@@ -214,7 +214,7 @@ export default function OrderDetailScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#ffffff',
   },
   scrollContainer: {
     padding: 16,
@@ -239,6 +239,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 12,
     marginBottom: 4,
+    textAlign:"center"
   },
   orderDate: {
     fontSize: 16,

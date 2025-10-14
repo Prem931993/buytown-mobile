@@ -73,7 +73,7 @@ export default function WelcomeScreen() {
  }, [])
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      <StatusBar barStyle="dark-content" backgroundColor="black" />
       {/* Top Image */}
       {/* Text Content */}
       {isLogin ? <>

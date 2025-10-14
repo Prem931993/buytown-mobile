@@ -390,7 +390,7 @@ export default function HeaderBar() {
 
   return (
     <View style={styles.container}>
-       <StatusBar barStyle="light-content" backgroundColor="black" />
+       <StatusBar barStyle="dark-content" backgroundColor="black" />
       
       {/* Top Row */}
       <View style={styles.topRow}>

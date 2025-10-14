@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   scrollContent: {
-    paddingBottom: 200,
+    paddingBottom: 100,
     backgroundColor:"#ffffff"
   },
 
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   relatedSection: {
     padding: 16,
     paddingTop: 0,
-    paddingBottom: 0,
+    paddingBottom: 10,
   },
   sectionTitle: {
     fontSize: 20,
@@ -679,6 +679,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     overflow: 'hidden',
+    marginBottom:10,
   },
   relatedImageContainer: {
     height: 120,

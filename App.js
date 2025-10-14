@@ -78,6 +78,10 @@ function CartStackScreen() {
     <CartStack.Navigator screenOptions={{ headerShown: false }}>
       <CartStack.Screen name="CartMain" component={CartScreen} />
       <CartStack.Screen name="CheckoutScreen" component={CheckoutScreen} />
+      <CartStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
+      <CartStack.Screen name="OrderSuccessScreen" component={OrderSuccessScreen} />
+      <CartStack.Screen name="OrderProcessingScreen" component={OrderProcessingScreen} />
+      <CartStack.Screen name="OrderFailureScreen" component={OrderFailureScreen} />
     </CartStack.Navigator>
   );
 }
@@ -86,6 +90,7 @@ function WishlistStackScreen() {
   return (
     <WishlistStack.Navigator screenOptions={{ headerShown: false }}>
       <WishlistStack.Screen name="WishlistMain" component={MyWishlistScreen} />
+      <WishlistStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
     </WishlistStack.Navigator>
   );
 }

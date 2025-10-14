@@ -32,6 +32,7 @@ export default function Categories() {
             'Content-Type': 'application/json'
           }
         })
+        console.log("top-selling products:",response.data);
         // setLoading(false);
         if(response.status === 200) {
           setCategories(response.data.data.selected_categories)
@@ -66,7 +67,8 @@ export default function Categories() {
           }
 
         >
-          <Image source={{uri: cat.image}} style={styles.categoryImage} />
+          {/* <Image source={{uri: cat.image}} style={styles.categoryImage} /> */}
+          <Icon name={cat.description} size={28} color="#999" />
           <Text style={styles.categoryLabel}>{cat.name}</Text>
         </TouchableOpacity>
       ))}
@@ -79,7 +81,7 @@ export default function Categories() {
           });
         }}
       >
-          <Icon name='grid-outline' size={28} color="#999" />
+          <Icon name='grid-outline' size={30} color="#999" />
           <Text style={styles.categoryLabel}>SEE MORE</Text>
         </TouchableOpacity>
     </View>

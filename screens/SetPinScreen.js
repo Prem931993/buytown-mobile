@@ -14,7 +14,7 @@ import {
   View
 } from 'react-native';
 import { AppContext } from './../ContextAPI/ContextAPI';
-import TermsAndConditionsScreen from './TermsScreen';
+import TermsAndConditionsScreen from './TermsScreenPopup';
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/set-password`; 
 const TERMS_AGREE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/agree-terms`; // hypothetical endpoint
@@ -67,6 +67,35 @@ export default function PinEntryScreen({ navigation }) {
     }
   };
 
+  useEffect(()=> {
+    if(otp) {
+      console.log("otp", otp);
+    }
+  }, [otp])
+
+  const handleBackspace = (type) => {
+    let array, setArray, prefix;
+    if (type === 'pin') { array = pin; setArray = setPin; prefix = 'pin'; }
+    else if (type === 'confirmPin') { array = confirmPin; setArray = setConfirmPin; prefix = 'confirmPin'; }
+    else if (type === 'otp') { array = otpCode; setArray = setOtpCode; prefix = 'otp'; }
+
+    // Find the last index with value
+    let lastIndex = -1;
+    for (let i = array.length - 1; i >= 0; i--) {
+      if (array[i] !== '') {
+        lastIndex = i;
+        break;
+      }
+    }
+    if (lastIndex >= 0) {
+      const updated = [...array];
+      updated[lastIndex] = '';
+      setArray(updated);
+      const input = `${prefix}${lastIndex}`;
+      refs[input]?.focus();
+    }
+  };
+
   const refs = {};
 
   const handleSetPinPress = async () => {
@@ -101,6 +130,7 @@ export default function PinEntryScreen({ navigation }) {
       if (response.data.statusCode === 200) {
         setModalVisible(false);
         const role = await AsyncStorage.getItem("role");
+        await AsyncStorage.setItem("aggredTerms", "true");
         let targetScreen = 'ProfileScreen';
         if(role == 2) {
           targetScreen = 'MainTabs';
@@ -123,9 +153,12 @@ export default function PinEntryScreen({ navigation }) {
 
   const setPinApiCall = async () => {
     const joinedPin = pin.join('');
+    const joinedOtp = otpCode?.join('')
+    const userId = await AsyncStorage.getItem("userId");
+    console.log(userId, joinedOtp, joinedPin )
     try {
-      const userId = await AsyncStorage.getItem("userId");
-      const response = await axios.post(`${API_URL}`, {userId: userId, otp:otp,  newPassword: joinedPin}, {
+      
+      const response = await axios.post(`${API_URL}`, {userId: userId, otp:joinedOtp,  newPassword: joinedPin}, {
         headers: {
           'Authorization': `Bearer ${apiToken}`,
           'Content-Type': 'application/json'
@@ -153,7 +186,7 @@ export default function PinEntryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* <StatusBar barStyle="light-content" backgroundColor="black" /> */}
+      <StatusBar barStyle="dark-content" backgroundColor="black" />
       <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
       <Text style={styles.welcome}>Welcome user</Text>
       <Text style={styles.instruction}>Enter 6-digit OTP</Text>
@@ -166,8 +199,13 @@ export default function PinEntryScreen({ navigation }) {
             maxLength={1}
             ref={(input) => (refs[`otp${index}`] = input)}
             onChangeText={(value) => handleOtpChange(value, index)}
-            value={digit}
+            value={digit ? '•' : ''}
             secureTextEntry={false}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Backspace') {
+                handleBackspace('otp');
+              }
+            }}
           />
         ))}
       </View>
@@ -181,8 +219,13 @@ export default function PinEntryScreen({ navigation }) {
             maxLength={1}
             ref={(input) => (refs[`pin${index}`] = input)}
             onChangeText={(value) => handlePinChange(value, index)}
-            value={digit}
+            value={digit ? '•' : ''}
             secureTextEntry={true}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Backspace') {
+                handleBackspace('pin');
+              }
+            }}
           />
         ))}
       </View>
@@ -196,8 +239,13 @@ export default function PinEntryScreen({ navigation }) {
             maxLength={1}
             ref={(input) => (refs[`confirmPin${index}`] = input)}
             onChangeText={(value) => handleConfirmPinChange(value, index)}
-            value={digit}
+            value={digit ? '•' : ''}
             secureTextEntry={true}
+            onKeyPress={({ nativeEvent }) => {
+              if (nativeEvent.key === 'Backspace') {
+                handleBackspace('confirmPin');
+              }
+            }}
           />
         ))}
       </View>
@@ -284,7 +332,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderColor: '#000000',
     width: 50,
-    height: 40,
+    height: 60,
     textAlign: 'center',
     fontSize: 24,
     marginHorizontal: 5,
@@ -294,7 +342,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderColor: '#000000',
     width: 30,
-    height: 40,
+    height: 60,
     textAlign: 'center',
     fontSize: 24,
     marginHorizontal: 5,
@@ -324,14 +372,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 0,
   },
   modalContent: {
     backgroundColor: '#fff',
     borderRadius: 10,
-    width: '90%',
-    maxHeight: '80%',
-    padding: 20,
+    width: '100%',
+    maxHeight: '100%',
+    height:"100%",
+    padding: 0,
   },
   modalTitle: {
     fontSize: 20,

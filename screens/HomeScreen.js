@@ -7,6 +7,7 @@ import {
   Alert,
   BackHandler,
   Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
+import TermsAndConditionsScreen from './TermsScreenPopup';
 
 import RecentOrders from '../components/RecentOrders';
 import BannerCarousel from './../components/BannerCarousel';
@@ -27,6 +29,7 @@ import { AppContext } from './../ContextAPI/ContextAPI';
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/top-selling-products`;
 const API_URL_RandomProducts = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/random-products`;
+const TERMS_AGREE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/agree-terms`; // hypothetical endpoint
 
 export default function HomeScreen() {
   const { apiToken, accessTokens, onGenerateToken, loadingTokens } =
@@ -37,6 +40,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [randomProducts, setRandomProducts] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const navigation = useNavigation();
 
@@ -167,6 +171,70 @@ export default function HomeScreen() {
       fetchRandomProducts();
     }, [apiToken, accessTokens])
   );
+
+  const handleAgreeTerms = async () => {
+    setLoading(true);
+    try {
+      // Call API to mark terms agreed
+      const accessToken = await AsyncStorage.getItem("accessToken");
+      const response = await axios.post(TERMS_AGREE_API, { terms_agreed: true }, {
+        headers: {
+          'Authorization': `Bearer ${apiToken}`,
+          'X-User-Token': `Bearer ${accessToken}`, // User token
+          'Content-Type': 'application/json'
+        }
+      });
+      if (response.data.statusCode === 200) {
+        setModalVisible(false);
+        const role = await AsyncStorage.getItem("role");
+        await AsyncStorage.setItem("aggredTerms", "true");
+        let targetScreen = 'ProfileScreen';
+        if(role == 2) {
+          targetScreen = 'MainTabs';
+        } else if(role == 3) {
+          targetScreen = 'DeliveryListScreen';
+        }
+        navigation.navigate(targetScreen);
+      } else {
+        // setErrorMessage('Failed to agree to terms. Please try again.');
+        // setErrorModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Error agreeing terms:', error.response?.data || error.message);
+      // setErrorMessage('Failed to agree to terms. Please try again.');
+      // setErrorModalVisible(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+const checkTerms = async () => {
+  try {
+    const value = await AsyncStorage.getItem("agreedToTerms");
+    const aggredTerms = await AsyncStorage.getItem("aggredTerms");
+    // console.log("agreedToTerms (raw):", value);
+
+    // AsyncStorage stores everything as strings, so compare with string
+    console.log("aggredTerms", aggredTerms);
+    if(aggredTerms === "true") {
+      setModalVisible(false);
+    } else if (value === "false" || value === null && !aggredTerms) {
+      console.log("agreedToTerms", false);
+      await AsyncStorage.removeItem("aggredTerms", "false");
+      setModalVisible(true);
+    } else {
+      console.log("agreedToTerms", true);
+      setModalVisible(false);
+    }
+  } catch (error) {
+    console.error("Error reading storage:", error);
+  }
+};
+
+// Example usage:
+useEffect(() => {
+  checkTerms();
+}, []);
 
   // Handle back button to exit app
   useEffect(() => {
@@ -334,6 +402,50 @@ export default function HomeScreen() {
           })}
         </View>
       </ScrollView>
+      {/* Terms and Conditions Modal */}
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={modalVisible}
+              onRequestClose={() => {
+                setModalVisible(false);
+              }}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                  {/* <ScrollView> */}
+                    <TermsAndConditionsScreen />
+                    {/* <Text style={styles.modalTitle}>Terms and Conditions</Text>
+                    <Text style={styles.modalText}>
+                      Please read and agree to the terms and conditions before proceeding.
+                    </Text>
+                    <Text style={styles.modalText}>
+                      1. Goods Once Received Cannot be Returned Or Exchanged.
+                    </Text>
+                    <Text style={styles.modalText}>
+                      2. Delivery charges may differ based on distance.
+                    </Text>
+                    <Text style={styles.modalText}>
+                      3. Minimum order should be Rs. 1000 for delivery.
+                    </Text>
+                    <Text style={styles.modalText}>
+                      4. We ensure that the BuyTown products you order are of high quality and trustworthy.
+                    </Text>
+                    <Text style={styles.modalText}>
+                      5. Providing you with the best service is our top priority.
+                    </Text> */}
+                    {/* Add more terms as needed */}
+                  {/* </ScrollView> */}
+                  {loading ? (
+                    <ActivityIndicator size="large" color="#eb1f2a" />
+                  ) : (
+                    <TouchableOpacity style={styles.agreeButton} onPress={handleAgreeTerms}>
+                      <Text style={styles.agreeButtonText}>I Agree</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </Modal>
     </SafeAreaView>
   );
 }
@@ -454,5 +566,41 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: '#eb1f2a',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: '100%',
+    maxHeight: '100%',
+    height:"100%",
+    padding: 0,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  modalText: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#333',
+  },
+  agreeButton: {
+    backgroundColor: '#eb1f2a',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  agreeButtonText: {
+    color: '#fff',
+    fontSize: 16,
   },
 });

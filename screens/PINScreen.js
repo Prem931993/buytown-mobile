@@ -64,9 +64,12 @@ export default function PinEntryScreen({ navigation }) {
             await AsyncStorage.setItem("accessToken", accessToken);
             setAccessTokenState(accessToken);
           }
+
+          console.log("response.data", response.data);
           await AsyncStorage.setItem("refreshToken", String(response.data.refreshToken));
           await AsyncStorage.setItem("userId", String(response.data.user.id));
           await AsyncStorage.setItem("roleId", String(response.data.user.role_id));
+          await AsyncStorage.setItem("agreedToTerms", String(response.data.user.agreedToTerms));
           await AsyncStorage.setItem("isLoggedIn", "true");
           const roleId = response.data.user.role_id;
           let targetScreen = 'MainTabs';
@@ -117,7 +120,7 @@ export default function PinEntryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="black" />
+      <StatusBar barStyle="dark-content" backgroundColor="black" />
       <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
       {/* <I
       ine" size={24} color="#ffffff" style={{ marginBottom: 10,}} /> */}

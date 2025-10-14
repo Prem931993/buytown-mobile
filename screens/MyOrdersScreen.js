@@ -28,6 +28,7 @@ export default function MyOrdersScreen({ navigation }) {
           'Content-Type': 'application/json',
         },
       });
+      console.log('Orders fetch:', response.data);
       if (response.data.statusCode === 200) {
         setOrders(response.data.orders || []);
       }
@@ -64,7 +65,9 @@ export default function MyOrdersScreen({ navigation }) {
       <View style={styles.routeRow}>
         <Text style={styles.cityText}>{item.source_city || 'RS Puram'}</Text>
         <View style={styles.dotLine} />
-        <Text style={styles.cityText}>{item.destination_city || 'Gandhipuram'}</Text>
+        <Text style={styles.cityText}>
+          {JSON.parse(item.billing_address)?.city || ''}
+        </Text>
       </View>
 
       <View style={styles.orderFooter}>
@@ -93,7 +96,7 @@ export default function MyOrdersScreen({ navigation }) {
 
   const filters = [
     { label: 'All', value: 'all' },
-    { label: 'Pending', value: 'pending' },
+    { label: 'Pending', value: 'awaiting_confirmation' },
     { label: 'Delivered', value: 'completed' },
     { label: 'Canceled', value: 'cancelled' },
   ];

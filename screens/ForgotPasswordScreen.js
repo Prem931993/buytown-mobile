@@ -89,7 +89,7 @@ export default function LoginScreen({ navigation }) {
       }
     >
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="black" />
+        <StatusBar barStyle="dark-content" backgroundColor="black" />
         
 
         <View style={styles.loginSection}>
@@ -129,7 +129,7 @@ export default function LoginScreen({ navigation }) {
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.forgotPassword} >
-                    <Text style={styles.forgotPasswordText} onPress={handleResetForgot}>Reset PIN</Text>
+                    {/* <Text style={styles.forgotPasswordText} onPress={handleResetForgot}>Reset PIN</Text> */}
                     <Text style={styles.forgotPasswordText} onPress={handleForgot}>Return to Login</Text>
                   </TouchableOpacity>
                 </>

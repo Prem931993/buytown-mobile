@@ -81,7 +81,9 @@ export default function LoginScreen({ navigation }) {
             'Content-Type': 'application/json'
           }
         })
+        console.log("Response----", response.data)
         if(response.data.statusCode === 200) {
+          // console.log("Response", response.data)
           setLoginResponse(response.data);
           if(response.data.hasPassword === false) {
             navigation.navigate('SetPin');
@@ -136,7 +138,7 @@ export default function LoginScreen({ navigation }) {
       }
     >
       <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="black" />
+        <StatusBar barStyle="dark-content" backgroundColor="black" />
         
 
         <View style={styles.loginSection}>

@@ -41,6 +41,7 @@
     "react-native-maps-directions": "^1.9.0",
     "react-native-phonepe-pg": "^3.1.1",
     "react-native-reanimated-carousel": "^4.0.3",
+    "react-native-render-html": "^6.3.4",
     "react-native-responsive-fontsize": "^0.5.1",
     "react-native-responsive-screen": "^1.4.2",
     "react-native-safe-area-context": "~5.6.0",

@@ -4,7 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { WebView } from 'react-native-webview';
@@ -25,7 +27,7 @@ export default function TermsAndConditionsScreen({ navigation }) {
           'X-User-Token': `Bearer ${accessTokens}`,
         },
       });
-      console.log("termsCondition", response.data.data.content);
+    //   console.log("termsCondition", response.data.data.content);
       if (response.data.success) {
         setPageData(response.data.data);
       }
@@ -54,7 +56,7 @@ export default function TermsAndConditionsScreen({ navigation }) {
         </View>
 
         {/* 📃 Terms Content */}
-      <WebView source={{ html: pageData?.content }} style={styles.webview} />
+      {/* <WebView source={{ html: pageData?.content }} style={styles.webview} /> */}
 
       
       </View>
@@ -65,27 +67,28 @@ export default function TermsAndConditionsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="black" />
       {/* 🔼 Topbar */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        {/* <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back-outline" size={24} color="#fff" />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         <Text style={styles.headerTitle}>{pageData?.title || 'Terms & Conditions'}</Text>
       </View>
-      <View>
-        {/* <WebView source={{ html: pageData?.content }} style={styles.webview} /> */}
-        {/* <Text>{pageData?.content}</Text> */}
-      </View>
+      <ScrollView>
       <RenderHtml
         // contentWidth={width}
         source={{ html: htmlContent }}
         baseStyle={{
           color: '#333',
           fontSize: 16,
-          lineHeight: 22,
+          lineHeight: 25,
+          padding:20,
+          paddingBottom:0
         }}
       />
+      </ScrollView>
       {/* 📃 Terms Content */}
       
     </View>
@@ -96,7 +99,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingBottom:50,
+    paddingBottom:20,
   },
   header: {
     backgroundColor: '#eb1f2a',
@@ -104,14 +107,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 15,
-    paddingTop: 50,
+    paddingTop: 15,
     paddingBottom: 15,
+    marginBottom:20,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
-    paddingLeft:5
+    paddingLeft:5,
+    
   },
   content: {
     padding: 20,
