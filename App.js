@@ -41,6 +41,8 @@ import VariantScreen from './screens/VariantScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import MyWishlistScreen from './screens/MyWishlistScreen';
 import CustomerSupportScreen from './screens/CustomerSupportScreen';
+import AboutScreen from './screens/AboutScreen';
+import RefundPolicyScreen from './screens/RefundPolicyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -53,7 +55,7 @@ const MyAccountStack = createNativeStackNavigator();
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
       <HomeStack.Screen name="ProductListScreen" component={ProductListScreen} />
@@ -63,7 +65,7 @@ function HomeStackScreen() {
 
 function CategoryStackScreen() {
   return (
-    <CategoryStack.Navigator screenOptions={{ headerShown: false }}>
+    <CategoryStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <CategoryStack.Screen name="CategoryMain" component={CategoryScreen} />
       <CategoryStack.Screen name="SubCategoryScreen" component={SubCategoryScreen} />
       <CategoryStack.Screen name="VariantScreen" component={VariantScreen} />
@@ -75,7 +77,7 @@ function CategoryStackScreen() {
 
 function CartStackScreen() {
   return (
-    <CartStack.Navigator screenOptions={{ headerShown: false }}>
+    <CartStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <CartStack.Screen name="CartMain" component={CartScreen} />
       <CartStack.Screen name="CheckoutScreen" component={CheckoutScreen} />
       <CartStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
@@ -88,7 +90,7 @@ function CartStackScreen() {
 
 function WishlistStackScreen() {
   return (
-    <WishlistStack.Navigator screenOptions={{ headerShown: false }}>
+    <WishlistStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <WishlistStack.Screen name="WishlistMain" component={MyWishlistScreen} />
       <WishlistStack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
     </WishlistStack.Navigator>
@@ -97,7 +99,7 @@ function WishlistStackScreen() {
 
 function AccountStackScreen() {
   return (
-    <AccountStack.Navigator screenOptions={{ headerShown: false }}>
+    <AccountStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <AccountStack.Screen name="DeliveryList" component={DeliveryListScreen} />
       <AccountStack.Screen name="DeliveryDetail" component={DeliveryDetailScreen} />
       <AccountStack.Screen name="DeliveryConfirmation" component={DeliveryConfirmationScreen} />
@@ -108,13 +110,14 @@ function AccountStackScreen() {
 
 function MyAccountStackScreen() {
   return (
-    <MyAccountStack.Navigator screenOptions={{ headerShown: false }}>
+    <MyAccountStack.Navigator screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <MyAccountStack.Screen name="AccountScreen" component={AccountScreen} />
       <MyAccountStack.Screen name="CustomerSupportScreen" component={CustomerSupportScreen} />
       <MyAccountStack.Screen name="MyOrdersScreen" component={MyOrdersScreen} />
       <MyAccountStack.Screen name="ChangePasswordScreen" component={ChangePasswordScreen} />
       <MyAccountStack.Screen name="OrderDetailScreen" component={OrderDetailScreen} />
       <MyAccountStack.Screen name="ProfileScreen" component={ProfileScreen} />
+      <MyAccountStack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
     </MyAccountStack.Navigator>
   );
 }
@@ -266,20 +269,22 @@ export default function App() {
           <Stack.Screen name="ResetPin" component={ResetPinScreen} />
           <Stack.Screen name="Terms" component={TermsScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <Stack.Screen name="About" component={AboutScreen} />
           <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
          
 
           {/* Main App Screens with Tabs */}
-          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen name="MainTabs" component={MainTabs} options={{ gestureEnabled: false }} />
           <Stack.Screen name="OrderSuccessScreen" component={OrderSuccessScreen} />
           <Stack.Screen name="OrderProcessingScreen" component={OrderProcessingScreen} />
           <Stack.Screen name="OrderFailureScreen" component={OrderFailureScreen} />
           <Stack.Screen name="DeliverySuccessScreen" component={DeliverySuccessScreen} />
           <Stack.Screen name="CategoryMain" component={CategoryScreen} />
           <Stack.Screen name="ProductListScreen" component={ProductListScreen} />
-          <Stack.Screen name="DeliveryPage" component={AccountStackScreen} />
+          <Stack.Screen name="DeliveryPage" component={AccountStackScreen} options={{ gestureEnabled: false }} />
           <Stack.Screen name="ProductDetailsScreen" component={ProductDetailsScreen} />
-          
+          <Stack.Screen name="RefundPolicy" component={RefundPolicyScreen} />
+
         </Stack.Navigator>
       </NavigationContainer>
       <LogoutModal />
