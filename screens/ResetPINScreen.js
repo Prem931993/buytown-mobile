@@ -75,6 +75,7 @@ export default function ResetPinScreen({ navigation }) {
       <Text style={styles.title}>Reset Your PIN</Text>
 
       <Text style={styles.instruction}>Enter New 4-digit PIN</Text>
+      <Text style={styles.otpText}>OTP: 123456</Text>
       {renderPinInput(newPin, newRefs, 'new')}
 
       <Text style={styles.instruction}>Confirm New 4-digit PIN</Text>
@@ -96,6 +97,11 @@ const styles = StyleSheet.create({
   avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10, color: '#000000' },
   instruction: { fontSize: 16, marginVertical: 10, color: '#000000' },
+  otpText: {
+    fontSize: 16,
+    marginBottom: 10,
+    color: '#000000',
+  },
   pinContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '80%', marginBottom:30 },
   pinInput: {
     borderBottomWidth: 2,

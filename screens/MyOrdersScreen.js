@@ -28,7 +28,6 @@ export default function MyOrdersScreen({ navigation }) {
           'Content-Type': 'application/json',
         },
       });
-      console.log('Orders fetch:', response.data);
       if (response.data.statusCode === 200) {
         setOrders(response.data.orders || []);
       }

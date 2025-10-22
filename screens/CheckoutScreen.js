@@ -193,12 +193,31 @@ export default function CheckoutScreen({ navigation, route }) {
         if (response.data.statusCode === 200) {
           const user = response.data.user;
           setUserProfile(user);
+
+          // Parse address if available
+          let parsedAddress = {};
+          if (user.address) {
+            if (typeof user.address === 'string') {
+              try {
+                parsedAddress = JSON.parse(user.address);
+              } catch (e) {
+                console.error('Error parsing address:', e);
+              }
+            } else if (typeof user.address === 'object') {
+              parsedAddress = user.address;
+            }
+          }
+
           setBillingAddress(prev => ({
             ...prev,
             first_name: user.firstname || prev.first_name,
             last_name: user.lastname || prev.last_name,
-            gst_number: user.gstin || prev.gst_number,
-            // Add other fields if available
+            gst_number: parsedAddress.gstin || user.gstin || prev.gst_number,
+            street: parsedAddress.street || prev.street,
+            city: parsedAddress.city || prev.city,
+            state: parsedAddress.state || prev.state,
+            zip_code: parsedAddress.zip_code || prev.zip_code,
+            country: parsedAddress.country || prev.country,
           }));
           setShippingAddress(prev => ({
             ...prev,

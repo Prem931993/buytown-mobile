@@ -3,15 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import { WebView } from 'react-native-webview';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import RenderHtml from 'react-native-render-html';
+import { useWindowDimensions } from 'react-native';
 import axios from 'axios';
 import { AppContext } from '../ContextAPI/ContextAPI';
+import InnerHeader from '../components/InnerHeader';
 
 export default function RefundPolicyScreen({ navigation }) {
+  const { width } = useWindowDimensions();
   const { apiToken, accessTokens } = useContext(AppContext);
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,64 +43,86 @@ export default function RefundPolicyScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Refund Policy</Text>
-        </View>
-        <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <InnerHeader showSearch={false} showBackButton={true} />
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#eb1f2a" />
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
+  const htmlContent = pageData?.content || '<p>No content available</p>';
+
   return (
-    <View style={styles.container}>
-      {/* 🔼 Topbar */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>{pageData?.title || 'Refund Policy'}</Text>
-
-      </View>
-
-      {/* 📃 Terms Content */}
-      <WebView source={{ html: pageData?.content }} style={styles.webview} />
-    </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <InnerHeader showSearch={false} showBackButton={true} />
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.contentWrapper}>
+          <Text style={styles.pageTitle}>{pageData?.title || 'Refund Policy'}</Text>
+          <RenderHtml
+            contentWidth={width - 40}
+            source={{ html: htmlContent }}
+            baseStyle={styles.htmlContent}
+            tagsStyles={{
+              p: { marginBottom: 10, lineHeight: 24 },
+              h1: { fontSize: 24, fontWeight: 'bold', marginBottom: 15, color: '#333' },
+              h2: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#333' },
+              h3: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+              ul: { marginBottom: 15 },
+              li: { marginBottom: 5, lineHeight: 22 },
+              strong: { fontWeight: 'bold', color: '#eb1f2a' },
+            }}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    paddingBottom:50,
+    backgroundColor: '#f8f9fa',
   },
-  header: {
-    backgroundColor: '#eb1f2a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-    paddingTop: 50,
-    paddingBottom: 15,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    paddingLeft:5
-  },
-  content: {
-    padding: 20,
-    paddingBottom:30
-  },
-  webview: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 80, // Space for bottom navigation
+  },
+  contentWrapper: {
+    backgroundColor: '#fff',
+    margin: 15,
+    borderRadius: 12,
+    padding: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  htmlContent: {
+    color: '#333',
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

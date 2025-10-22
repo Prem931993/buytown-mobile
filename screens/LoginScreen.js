@@ -81,13 +81,10 @@ export default function LoginScreen({ navigation }) {
             'Content-Type': 'application/json'
           }
         })
-        console.log("Response----", response.data)
         if(response.data.statusCode === 200) {
-          // console.log("Response", response.data)
           setLoginResponse(response.data);
           if(response.data.hasPassword === false) {
-            navigation.navigate('SetPin');
-            onOTPCode(response.data.message);
+            navigation.navigate('SetPin', { otp: response.data.message });
             await AsyncStorage.setItem("userId", String(response.data.userId));
           } else {
             navigation.navigate('Pin');

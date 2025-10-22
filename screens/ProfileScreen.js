@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -29,12 +30,21 @@ const validationSchema = Yup.object().shape({
   email: Yup.string().email('Invalid email').required('Email is required'),
   phone: Yup.string().required('Phone Number is required').matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
   gstin: Yup.string().optional(),
+  street: Yup.string().required('Street Address is required'),
+  city: Yup.string().required('City is required'),
+  state: Yup.string().required('State is required'),
+  zip_code: Yup.string().required('Zip Code is required').matches(/^[0-9]{6}$/, 'Zip Code must be 6 digits'),
+  country: Yup.string().required('Country is required'),
 });
 
 export default function ProfileScreen({ navigation }) {
   const { apiToken, accessTokens, logout } = useContext(AppContext);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [gstLoading, setGstLoading] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -61,34 +71,109 @@ export default function ProfileScreen({ navigation }) {
     }
   }, [apiToken, accessTokens]);
 
+  const fetchGSTDetails = async (gstNumber) => {
+    if (!gstNumber || gstNumber.length < 15) return;
+    setGstLoading(true);
+    try {
+      const response = await axios.post('https://gst-verification.p.rapidapi.com/v3/tasks/sync/verify_with_source/ind_gst_certificate', {
+        task_id: '74f4c926-250c-43ca-9c53-453e87ceacd1',
+        group_id: '8e16424a-58fc-4ba4-ab20-5bc8e7c3c41e',
+        data: { gstin: gstNumber }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-rapidapi-host': 'gst-verification.p.rapidapi.com',
+          'x-rapidapi-key': 'dde12f15eemsha9b21be25825a20p1e707ajsn9091b64f86f0'
+        }
+      });
+      if (response.data && response.data.status === 'completed' && response.data.result?.source_output?.status === 'id_found') {
+        const address = response.data.result.source_output.principal_place_of_business_fields?.principal_place_of_business_address;
+        return {
+          street: address?.street || '',
+          city: address?.location || '',
+          state: address?.state_name || '',
+          zip_code: address?.pincode || '',
+        };
+      } else {
+        Alert.alert('GST Error', 'Invalid GST number or unable to fetch details.');
+        return null;
+      }
+    } catch (error) {
+      console.error('GST fetch error:', error);
+      if (error.response?.status === 429) {
+        Alert.alert('Rate Limit Exceeded', 'Too many requests. Please try again later.');
+      } else {
+        Alert.alert('Error', 'Failed to fetch GST details.');
+      }
+      return null;
+    } finally {
+      setGstLoading(false);
+    }
+  };
+
+  const handleGSTChange = async (text, setFieldValue) => {
+    setFieldValue('gstin', text);
+    if (text.length === 15) {
+      const gstDetails = await fetchGSTDetails(text);
+      if (gstDetails) {
+        setFieldValue('street', gstDetails.street);
+        setFieldValue('city', gstDetails.city);
+        setFieldValue('state', gstDetails.state);
+        setFieldValue('zip_code', gstDetails.zip_code);
+      }
+    }
+  };
+
   const handleSubmit = async (values, { setSubmitting }) => {
     setSubmitting(true);
     try {
-      const userId = await AsyncStorage.getItem("userId");
-      const response = await axios.post(UPDATE_PROFILE_API, { userId, ...values }, {
+      const address = JSON.stringify({
+        street: values.street,
+        city: values.city,
+        state: values.state,
+        zip_code: values.zip_code,
+        country: values.country,
+        gstin: values.gstin
+      });
+
+      const payload = {
+        firstname: values.firstname,
+        lastname: values.lastname,
+        email: values.email,
+        phone_no: values.phone,
+        address: address,
+        gstin: values.gstin
+      };
+
+      const response = await axios.put(UPDATE_PROFILE_API, payload, {
         headers: {
           'Authorization': `Bearer ${apiToken}`,
           'X-User-Token': `Bearer ${accessTokens}`,
           'Content-Type': 'application/json'
         }
       });
+
       if (response.data.statusCode === 200) {
-        Alert.alert('Success', 'Profile updated successfully');
-        navigation.navigate('MainTabs');
+        setModalMessage('Profile updated successfully!');
+        setSuccessModalVisible(true);
+        setTimeout(() => {
+          setSuccessModalVisible(false);
+          navigation.navigate('MainTabs');
+        }, 2000);
       } else {
-        Alert.alert('Error', 'Failed to update profile. Please try again.');
+        setModalMessage('Failed to update profile. Please try again.');
+        setErrorModalVisible(true);
       }
     } catch (error) {
       console.error('Error updating profile:', error.response?.data || error.message);
-      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      setModalMessage('Failed to update profile. Please try again.');
+      setErrorModalVisible(true);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleSkip = () => {
-    navigation.navigate('MainTabs');
-  };
+
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -116,28 +201,121 @@ export default function ProfileScreen({ navigation }) {
         ) : (
           <Formik
           initialValues={{
-            gstin: profile?.gstin || '',
+            gstin: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.gstin || profile?.gstin || '';
+            })(),
             firstname: profile?.firstname || '',
             lastname: profile?.lastname || '',
             email: profile?.email || '',
-            phone: profile?.phone_no?.slice(-10) || ''
+            phone: profile?.phone_no?.slice(-10) || '',
+            street: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.street || '';
+            })(),
+            city: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.city || '';
+            })(),
+            state: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.state || '';
+            })(),
+            zip_code: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.zip_code || '';
+            })(),
+            country: (() => {
+              let parsedAddress = {};
+              if (profile?.address) {
+                if (typeof profile.address === 'string') {
+                  try {
+                    parsedAddress = JSON.parse(profile.address);
+                  } catch (e) {
+                    console.error('Error parsing address:', e);
+                  }
+                } else if (typeof profile.address === 'object') {
+                  parsedAddress = profile.address;
+                }
+              }
+              return parsedAddress.country || 'IN';
+            })()
           }}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
           enableReinitialize
         >
-          {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting }) => (
+          {({ handleChange, handleBlur, handleSubmit, values, errors, touched, isSubmitting, setFieldValue }) => (
             <View style={styles.form}>
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>GSTIN Number</Text>
-                <TextInput
-                  style={[styles.input, touched.gstin && errors.gstin && styles.inputError]}
-                  placeholder="Enter your GSTIN number"
-                  value={values.gstin}
-                  onChangeText={handleChange('gstin')}
-                  onBlur={handleBlur('gstin')}
-                  autoCapitalize="characters"
-                />
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    style={[styles.input, touched.gstin && errors.gstin && styles.inputError]}
+                    placeholder="Enter your GSTIN number"
+                    value={values.gstin}
+                    onChangeText={(text) => handleGSTChange(text, setFieldValue)}
+                    onBlur={handleBlur('gstin')}
+                    autoCapitalize="characters"
+                    maxLength={15}
+                  />
+                  {gstLoading && <ActivityIndicator size="small" color="#eb1f2a" style={styles.loader} />}
+                </View>
                 {touched.gstin && errors.gstin && <Text style={styles.errorText}>{errors.gstin}</Text>}
               </View>
 
@@ -191,8 +369,75 @@ export default function ProfileScreen({ navigation }) {
                   onBlur={handleBlur('phone')}
                   keyboardType="phone-pad"
                   maxLength={10}
+                  editable={false}
                 />
                 {touched.phone && errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Street Address</Text>
+                <TextInput
+                  style={[styles.input, touched.street && errors.street && styles.inputError]}
+                  placeholder="Enter your street address"
+                  value={values.street}
+                  onChangeText={handleChange('street')}
+                  onBlur={handleBlur('street')}
+                  autoCapitalize="words"
+                />
+                {touched.street && errors.street && <Text style={styles.errorText}>{errors.street}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>City</Text>
+                <TextInput
+                  style={[styles.input, touched.city && errors.city && styles.inputError]}
+                  placeholder="Enter your city"
+                  value={values.city}
+                  onChangeText={handleChange('city')}
+                  onBlur={handleBlur('city')}
+                  autoCapitalize="words"
+                />
+                {touched.city && errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>State</Text>
+                <TextInput
+                  style={[styles.input, touched.state && errors.state && styles.inputError]}
+                  placeholder="Enter your state"
+                  value={values.state}
+                  onChangeText={handleChange('state')}
+                  onBlur={handleBlur('state')}
+                  autoCapitalize="words"
+                />
+                {touched.state && errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Zip Code</Text>
+                <TextInput
+                  style={[styles.input, touched.zip_code && errors.zip_code && styles.inputError]}
+                  placeholder="Enter your zip code"
+                  value={values.zip_code}
+                  onChangeText={handleChange('zip_code')}
+                  onBlur={handleBlur('zip_code')}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                {touched.zip_code && errors.zip_code && <Text style={styles.errorText}>{errors.zip_code}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Country</Text>
+                <TextInput
+                  style={[styles.input, touched.country && errors.country && styles.inputError]}
+                  placeholder="Enter your country"
+                  value={values.country}
+                  onChangeText={handleChange('country')}
+                  onBlur={handleBlur('country')}
+                  autoCapitalize="words"
+                />
+                {touched.country && errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
               </View>
 
               {isSubmitting ? (
@@ -205,16 +450,6 @@ export default function ProfileScreen({ navigation }) {
                   <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
                     <Text style={styles.saveButtonText}>Save Profile</Text>
                   </TouchableOpacity>
-
-                  <View style={styles.secondaryActions}>
-                    <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                      <Text style={styles.skipButtonText}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.logoutButton} onPress={() => logout(navigation)}>
-                      <Text style={styles.logoutButtonText}>Logout</Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
               )}
             </View>
@@ -222,6 +457,48 @@ export default function ProfileScreen({ navigation }) {
         </Formik>
         )}
       </ScrollView>
+
+      {/* Success Modal */}
+      <Modal
+        visible={successModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setSuccessModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIcon}>
+              <Icon name="checkmark-circle" size={60} color="#4CAF50" />
+            </View>
+            <Text style={styles.modalTitle}>Success!</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.errorIcon}>
+              <Icon name="close-circle" size={60} color="#F44336" />
+            </View>
+            <Text style={styles.modalTitle}>Error</Text>
+            <Text style={styles.modalMessage}>{modalMessage}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => setErrorModalVisible(false)}
+            >
+              <Text style={styles.modalButtonText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -236,30 +513,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  backButton: {
-    padding: 5,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    flex: 1,
-    textAlign: 'center',
-    marginLeft: -24, // Adjust for back button width
-  },
+
   imageContainer: {
     alignItems: 'center',
     marginTop: 40,
@@ -353,41 +607,62 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  secondaryActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
+  inputWrapper: {
+    position: 'relative',
   },
-  skipButton: {
+  loader: {
+    position: 'absolute',
+    right: 10,
+    top: 15,
+  },
+  modalOverlay: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#eb1f2a',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
-    elevation: 1,
   },
-  skipButtonText: {
-    color: '#eb1f2a',
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '80%',
+    maxWidth: 300,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  errorIcon: {
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalMessage: {
     fontSize: 16,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: '#666',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginLeft: 10,
-    elevation: 1,
-  },
-  logoutButtonText: {
     color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButton: {
+    backgroundColor: '#eb1f2a',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
+
 });

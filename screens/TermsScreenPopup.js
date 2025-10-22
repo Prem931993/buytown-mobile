@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { WebView } from 'react-native-webview';
 import RenderHtml from 'react-native-render-html';
@@ -15,6 +16,7 @@ import axios from 'axios';
 import { AppContext } from '../ContextAPI/ContextAPI';
 
 export default function TermsAndConditionsScreen({ navigation }) {
+  const { width } = useWindowDimensions();
   const { apiToken, accessTokens } = useContext(AppContext);
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +29,6 @@ export default function TermsAndConditionsScreen({ navigation }) {
           'X-User-Token': `Bearer ${accessTokens}`,
         },
       });
-    //   console.log("termsCondition", response.data.data.content);
       if (response.data.success) {
         setPageData(response.data.data);
       }
@@ -78,7 +79,7 @@ export default function TermsAndConditionsScreen({ navigation }) {
       </View>
       <ScrollView>
       <RenderHtml
-        // contentWidth={width}
+        contentWidth={width}
         source={{ html: htmlContent }}
         baseStyle={{
           color: '#333',

@@ -3,16 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import { WebView } from 'react-native-webview';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import RenderHtml from 'react-native-render-html';
+import { useWindowDimensions } from 'react-native';
 import axios from 'axios';
 import { AppContext } from '../ContextAPI/ContextAPI';
-
+import InnerHeader from '../components/InnerHeader';
 export default function TermsAndConditionsScreen({ navigation }) {
+  const { width } = useWindowDimensions();
   const { apiToken, accessTokens } = useContext(AppContext);
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +26,6 @@ export default function TermsAndConditionsScreen({ navigation }) {
           'X-User-Token': `Bearer ${accessTokens}`,
         },
       });
-      console.log("termsCondition", response.data.data.content);
       if (response.data.success) {
         setPageData(response.data.data);
       }
@@ -42,53 +42,40 @@ export default function TermsAndConditionsScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Terms & Conditions</Text>
-        </View>
-        <View style={[styles.content, { justifyContent: 'center', alignItems: 'center', flex: 1 }]}>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <InnerHeader showSearch={false} showBackButton={true} />
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#eb1f2a" />
+          <Text style={styles.loadingText}>Loading...</Text>
         </View>
-
-        {/* 📃 Terms Content */}
-      <WebView source={{ html: pageData?.content }} style={styles.webview} />
-
-      
-      </View>
+      </SafeAreaView>
     );
   }
 
   const htmlContent = pageData?.content || '<p>No content available</p>';
 
   return (
-    <View style={styles.container}>
-      {/* 🔼 Topbar */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back-outline" size={24} color="#fff" />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>{pageData?.title || 'Terms & Conditions'}</Text>
-      </View>
-      <View>
-        {/* <WebView source={{ html: pageData?.content }} style={styles.webview} /> */}
-        {/* <Text>{pageData?.content}</Text> */}
-      </View>
-      <RenderHtml
-        // contentWidth={width}
-        source={{ html: htmlContent }}
-        baseStyle={{
-          color: '#333',
-          fontSize: 16,
-          lineHeight: 22,
-        }}
-      />
-      {/* 📃 Terms Content */}
-      
-    </View>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <InnerHeader showSearch={false} showBackButton={true} />
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
+        <View style={styles.contentWrapper}>
+          <RenderHtml
+            contentWidth={width - 40}
+            source={{ html: htmlContent }}
+            baseStyle={styles.htmlContent}
+            tagsStyles={{
+              p: { marginBottom: 10, lineHeight: 24 },
+              h1: { fontSize: 24, fontWeight: 'bold', marginBottom: 15, color: '#333' },
+              h2: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#333' },
+              h3: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+              ul: { marginBottom: 15 },
+              li: { marginBottom: 5, lineHeight: 22 },
+              strong: { fontWeight: 'bold', color: '#eb1f2a' },
+            }}
+          />
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -96,28 +83,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    paddingBottom:50,
+    paddingBottom: 50,
   },
-  header: {
-    backgroundColor: '#eb1f2a',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 15,
-    paddingTop: 50,
-    paddingBottom: 15,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    paddingLeft:5
-  },
-  content: {
-    padding: 20,
-    paddingBottom:30
-  },
-  webview: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: 30,
+  },
+  contentWrapper: {
+    padding: 20,
+  },
+  htmlContent: {
+    color: '#333',
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

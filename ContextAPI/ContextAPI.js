@@ -165,9 +165,12 @@ export const AppProvider = ({ children }) => {
       // Show success message in modal instead of alert
       setLogoutModalVisible(true);
 
-      // Navigate to welcome screen
+      // Navigate to welcome screen and reset navigation stack
       if (navigation) {
-        navigation.navigate('Welcome');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
       }
     } catch (error) {
       console.error('Logout error:', error);

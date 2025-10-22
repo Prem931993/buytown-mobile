@@ -279,24 +279,40 @@ export default function CartScreen({ navigation }) {
     );
   };
 
+  if (cartData.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <InnerHeader showSearch={false} />
+        <View style={styles.fullScreenEmptyCart}>
+          <Icon name="cart-outline" size={100} color="#ccc" />
+          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptySubtitle}>Add some items to get started</Text>
+          <TouchableOpacity
+            style={styles.startShoppingBtn}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.startShoppingText}>Start Shopping</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <InnerHeader showSearch={false} />
-      {cartData.length > 0 && (
-        <View style={styles.cartHeader}>
-          <Text style={styles.cartTitle}>Your Cart ({cartData.length})</Text>
-          <TouchableOpacity style={styles.clearCartBtn} onPress={clearCart}>
-            <Icon name="trash-outline" size={20} color="#f44336" />
-            <Text style={styles.clearCartText}>Clear Cart</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <View style={styles.cartHeader}>
+        <Text style={styles.cartTitle}>Your Cart ({cartData.length})</Text>
+        <TouchableOpacity style={styles.clearCartBtn} onPress={clearCart}>
+          <Icon name="trash-outline" size={20} color="#f44336" />
+          <Text style={styles.clearCartText}>Clear Cart</Text>
+        </TouchableOpacity>
+      </View>
       <View style={{ flex: 1 }}>
         <FlatList
           data={cartData}
           keyExtractor={(item) => item?.cart_item_id?.toString()}
           renderItem={renderCartItem}
-          ListEmptyComponent={renderEmptyCart}
           ListFooterComponent={renderSummaryFooter}
           contentContainerStyle={styles.cartList}
           showsVerticalScrollIndicator={false}
@@ -677,4 +693,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  fullScreenEmptyCart: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 40,
+    textAlign: 'center',
+  },
+  startShoppingBtn: {
+    backgroundColor: '#000000',
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    elevation: 3,
+  },
+  startShoppingText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
 });

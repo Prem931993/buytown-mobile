@@ -311,7 +311,7 @@ export default function CustomerSupportScreen({ navigation }) {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.link}
-            onPress={() => navigation.navigate('AboutScreen')}
+            onPress={() => navigation.navigate('About')}
           >
             <Text style={styles.linkText}>About</Text>
           </TouchableOpacity>

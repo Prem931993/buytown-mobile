@@ -32,7 +32,6 @@ export default function Categories() {
             'Content-Type': 'application/json'
           }
         })
-        console.log("top-selling products:",response.data);
         // setLoading(false);
         if(response.status === 200) {
           setCategories(response.data.data.selected_categories)

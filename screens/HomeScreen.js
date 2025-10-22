@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import axios from 'axios';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,9 +16,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/Ionicons';
-import TermsAndConditionsScreen from './TermsScreenPopup';
+import RenderHtml from 'react-native-render-html';
 
 import RecentOrders from '../components/RecentOrders';
 import BannerCarousel from './../components/BannerCarousel';
@@ -31,7 +32,8 @@ const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/top-sel
 const API_URL_RandomProducts = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products/random-products`;
 const TERMS_AGREE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/agree-terms`; // hypothetical endpoint
 
-export default function HomeScreen() {
+const HomeScreen = memo(function HomeScreen() {
+  const { width } = useWindowDimensions();
   const { apiToken, accessTokens, onGenerateToken, loadingTokens } =
     useContext(AppContext);
     
@@ -40,9 +42,22 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [randomProducts, setRandomProducts] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [termsContent, setTermsContent] = useState('');
+  const [termsLoading, setTermsLoading] = useState(false);
+  const [termsFetched, setTermsFetched] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const navigation = useNavigation();
+
+  const termsSource = useMemo(() => ({ html: termsContent }), [termsContent]);
+
+  const tagsStyles = useMemo(() => ({
+    p: { fontSize: 16, lineHeight: 24, color: '#333', marginBottom: 10 },
+    strong: { fontWeight: 'bold' },
+    em: { fontStyle: 'italic' },
+    u: { textDecorationLine: 'underline' },
+  }), []);
 
   // Fetch Top Selling Products
   const fetchTopSelling = async () => {
@@ -72,6 +87,12 @@ export default function HomeScreen() {
         // Retry the API call after token regeneration
         await fetchTopSelling();
       }
+      if (error.response?.data?.message === "User not found" || error.response?.data === "User not found") {
+        // Clear user data and redirect to login
+        await AsyncStorage.multiRemove(['accessToken', 'role', 'agreedTerms']);
+        navigation.navigate('Login');
+        return;
+      }
     } finally {
       setLoading(false);
     }
@@ -100,6 +121,12 @@ export default function HomeScreen() {
         'Error fetching random products:',
         error.response?.data || error.message
       );
+      if (error.response?.data?.message === "User not found" || error.response?.data === "User not found") {
+        // Clear user data and redirect to login
+        await AsyncStorage.multiRemove(['accessToken', 'role', 'agreedTerms']);
+        navigation.navigate('Login');
+        return;
+      }
       // Do not regenerate token here to avoid multiple regenerations
     } finally {
       setLoading(false);
@@ -185,46 +212,89 @@ export default function HomeScreen() {
         }
       });
       if (response.data.statusCode === 200) {
-        setModalVisible(false);
+        setShowTerms(false);
         const role = await AsyncStorage.getItem("role");
-        await AsyncStorage.setItem("aggredTerms", "true");
-        let targetScreen = 'ProfileScreen';
-        if(role == 2) {
-          targetScreen = 'MainTabs';
-        } else if(role == 3) {
-          targetScreen = 'DeliveryListScreen';
+        await AsyncStorage.setItem("agreedTerms", "true");
+        // Check if profile is updated
+        const profileUpdated = await AsyncStorage.getItem("profileUpdated");
+        if (profileUpdated !== "true") {
+          setShowProfileModal(true);
+        } else {
+          let targetScreen = 'ProfileScreen';
+          if(role == 2) {
+            targetScreen = 'MainTabs';
+          } else if(role == 3) {
+            targetScreen = 'DeliveryPage';
+          }
+          const rootNavigation = navigation.getParent();
+          if (rootNavigation) {
+            rootNavigation.reset({
+              index: 0,
+              routes: [{ name: targetScreen }],
+            });
+          } else {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: targetScreen }],
+            });
+          }
         }
-        navigation.navigate(targetScreen);
       } else {
         // setErrorMessage('Failed to agree to terms. Please try again.');
         // setErrorModalVisible(true);
       }
     } catch (error) {
       console.error('Error agreeing terms:', error.response?.data || error.message);
-      // setErrorMessage('Failed to agree to terms. Please try again.');
-      // setErrorModalVisible(true);
+      if (error.response?.data == "Invalid or expired API token.") {
+        await onGenerateToken(true);
+        // Retry the API call after token regeneration
+        await handleAgreeTerms();
+        return;
+      }
+      // For any other error, clear user data and redirect to login
+      await AsyncStorage.multiRemove(['accessToken', 'role', 'agreedTerms']);
+      navigation.navigate('Login');
+      return;
     } finally {
       setLoading(false);
     }
   };
   
+const fetchTermsContent = async () => {
+  if (termsFetched) return; // Prevent multiple fetches
+  try {
+    setTermsLoading(true);
+    const response = await axios.get(`${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/pages/slug/terms-conditions`, {
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        'X-User-Token': `Bearer ${accessTokens}`,
+      },
+    });
+    if (response.data.success) {
+      setTermsContent(response.data.data.content);
+      setTermsFetched(true);
+    }
+  } catch (error) {
+    console.error('Error fetching terms content:', error);
+  } finally {
+    setTermsLoading(false);
+  }
+};
+
 const checkTerms = async () => {
   try {
     const value = await AsyncStorage.getItem("agreedToTerms");
-    const aggredTerms = await AsyncStorage.getItem("aggredTerms");
-    // console.log("agreedToTerms (raw):", value);
+    const agreedTerms = await AsyncStorage.getItem("agreedTerms");
 
     // AsyncStorage stores everything as strings, so compare with string
-    console.log("aggredTerms", aggredTerms);
-    if(aggredTerms === "true") {
-      setModalVisible(false);
-    } else if (value === "false" || value === null && !aggredTerms) {
-      console.log("agreedToTerms", false);
-      await AsyncStorage.removeItem("aggredTerms", "false");
-      setModalVisible(true);
+
+    if(agreedTerms === "true") {
+      setShowTerms(false);
+    } else if (value === "false" || value === null && !agreedTerms) {
+      await AsyncStorage.removeItem("agreedTerms");
+      setShowTerms(true);
     } else {
-      console.log("agreedToTerms", true);
-      setModalVisible(false);
+      setShowTerms(false);
     }
   } catch (error) {
     console.error("Error reading storage:", error);
@@ -235,6 +305,23 @@ const checkTerms = async () => {
 useEffect(() => {
   checkTerms();
 }, []);
+
+// Fetch terms content when terms are shown and tokens are available
+useEffect(() => {
+  if (showTerms && apiToken && accessTokens) {
+    fetchTermsContent();
+  }
+}, [showTerms, apiToken, accessTokens]);
+
+// Hide tab bar when showing terms
+useEffect(() => {
+  const tabNavigator = navigation.getParent();
+  if (tabNavigator) {
+    tabNavigator.setOptions({
+      tabBarStyle: showTerms ? { display: 'none' } : undefined,
+    });
+  }
+}, [showTerms, navigation]);
 
   // Handle back button to exit app
   useEffect(() => {
@@ -257,6 +344,13 @@ useEffect(() => {
 
     return () => backHandler.remove();
   }, []);
+
+  // Disable iOS swipe back gesture to prevent navigating back to auth screens
+  useEffect(() => {
+    navigation.setOptions({
+      gestureEnabled: false,
+    });
+  }, [navigation]);
 
 
 
@@ -288,8 +382,98 @@ useEffect(() => {
     );
   }
 
+
+
+  const handleDeclineTerms = () => {
+    Alert.alert(
+      "Decline Terms",
+      "You must agree to the terms and conditions to continue using the app.",
+      [
+        { text: "OK", onPress: () => {} }
+      ]
+    );
+  };
+
+  if (showTerms) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+        <View style={styles.termsHeader}>
+          <Text style={styles.termsTitle}>Terms and Conditions</Text>
+        </View>
+        <ScrollView
+          style={styles.termsScroll}
+        >
+          {termsLoading ? (
+            <View style={styles.termsLoadingContainer}>
+              <ActivityIndicator size="large" color="#eb1f2a" />
+              <Text style={styles.termsLoadingText}>Loading terms and conditions...</Text>
+            </View>
+          ) : termsContent ? (
+            <RenderHtml
+              contentWidth={width}
+              source={termsSource}
+              tagsStyles={tagsStyles}
+            />
+          ) : (
+            <Text style={styles.termsText}>Failed to load terms and conditions.</Text>
+          )}
+        </ScrollView>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity style={styles.declineButton} onPress={handleDeclineTerms}>
+            <Text style={styles.declineButtonText}>Decline</Text>
+          </TouchableOpacity>
+          {loading ? (
+            <View style={styles.agreeButtonContainer}>
+              <ActivityIndicator size="large" color="#eb1f2a" />
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.agreeButton}
+              onPress={handleAgreeTerms}
+            >
+              <Text style={styles.agreeButtonText}>I Agree</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      <Modal
+        visible={showProfileModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowProfileModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Icon name="person-circle" size={60} color="#eb1f2a" style={styles.modalIcon} />
+            <Text style={styles.modalTitle}>Complete Your Profile</Text>
+            <Text style={styles.modalMessage}>
+              To provide you with a personalized experience and ensure smooth transactions, we recommend updating your profile information. This helps us tailor our services to your needs.
+            </Text>
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.doLaterButton}
+                onPress={() => setShowProfileModal(false)}
+              >
+                <Text style={styles.doLaterButtonText}>Do Later</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.updateNowButton}
+                onPress={() => {
+                  setShowProfileModal(false);
+                  navigation.navigate('ProfileScreen');
+                }}
+              >
+                <Text style={styles.updateNowButtonText}>Update Now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {loading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#eb1f2a" />
@@ -402,53 +586,11 @@ useEffect(() => {
           })}
         </View>
       </ScrollView>
-      {/* Terms and Conditions Modal */}
-            <Modal
-              animationType="slide"
-              transparent={true}
-              visible={modalVisible}
-              onRequestClose={() => {
-                setModalVisible(false);
-              }}
-            >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  {/* <ScrollView> */}
-                    <TermsAndConditionsScreen />
-                    {/* <Text style={styles.modalTitle}>Terms and Conditions</Text>
-                    <Text style={styles.modalText}>
-                      Please read and agree to the terms and conditions before proceeding.
-                    </Text>
-                    <Text style={styles.modalText}>
-                      1. Goods Once Received Cannot be Returned Or Exchanged.
-                    </Text>
-                    <Text style={styles.modalText}>
-                      2. Delivery charges may differ based on distance.
-                    </Text>
-                    <Text style={styles.modalText}>
-                      3. Minimum order should be Rs. 1000 for delivery.
-                    </Text>
-                    <Text style={styles.modalText}>
-                      4. We ensure that the BuyTown products you order are of high quality and trustworthy.
-                    </Text>
-                    <Text style={styles.modalText}>
-                      5. Providing you with the best service is our top priority.
-                    </Text> */}
-                    {/* Add more terms as needed */}
-                  {/* </ScrollView> */}
-                  {loading ? (
-                    <ActivityIndicator size="large" color="#eb1f2a" />
-                  ) : (
-                    <TouchableOpacity style={styles.agreeButton} onPress={handleAgreeTerms}>
-                      <Text style={styles.agreeButtonText}>I Agree</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            </Modal>
     </SafeAreaView>
   );
-}
+});
+
+export default HomeScreen;
 
 const styles = StyleSheet.create({
   sectionRow: {
@@ -567,40 +709,138 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#eb1f2a',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 0,
+  termsHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    width: '100%',
-    maxHeight: '100%',
-    height:"100%",
-    padding: 0,
-  },
-  modalTitle: {
-    fontSize: 20,
+  termsTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
   },
-  modalText: {
+  termsScroll: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  termsText: {
     fontSize: 16,
-    marginBottom: 10,
+    lineHeight: 24,
     color: '#333',
   },
+  agreeButtonContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
   agreeButton: {
-    backgroundColor: '#eb1f2a',
+    backgroundColor: '#000',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 10,
+    flex: 1,
   },
   agreeButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    marginBottom: 20,
+  },
+  declineButton: {
+    backgroundColor: '#ccc',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  declineButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  disabledButton: {
+    backgroundColor: '#ccc',
+  },
+  disabledText: {
+    color: '#999',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  modalMessage: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    color: '#666',
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  doLaterButton: {
+    backgroundColor: '#ccc',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  doLaterButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  updateNowButton: {
+    backgroundColor: '#eb1f2a',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    flex: 1,
+  },
+  updateNowButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  termsLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  termsLoadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#eb1f2a',
   },
 });

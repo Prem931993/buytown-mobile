@@ -2,30 +2,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
 import { useContext, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
+  Keyboard,
   Modal,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View
 } from 'react-native';
 import { AppContext } from './../ContextAPI/ContextAPI';
-import TermsAndConditionsScreen from './TermsScreenPopup';
 
-const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/set-password`; 
-const TERMS_AGREE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/agree-terms`; // hypothetical endpoint
+const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/set-password`;
 
-export default function PinEntryScreen({ navigation }) {
+export default function PinEntryScreen({ navigation, route }) {
   const { apiToken, otp, setAccessTokenState } = useContext(AppContext);
   const [pin, setPin] = useState(['', '', '', '']);
   const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
   const [otpCode, setOtpCode] = useState(otp ? otp.split('') : ['', '', '', '', '', '']);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const routeOtp = route?.params?.otp;
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -40,6 +37,9 @@ export default function PinEntryScreen({ navigation }) {
     if (value && index < 3) {
       const nextInput = `pin${index + 1}`;
       refs[nextInput]?.focus();
+    } else if (value && index === 3) {
+      // Close keyboard when last digit is entered
+      Keyboard.dismiss();
     }
   };
 
@@ -52,6 +52,9 @@ export default function PinEntryScreen({ navigation }) {
     if (value && index < 3) {
       const nextInput = `confirmPin${index + 1}`;
       refs[nextInput]?.focus();
+    } else if (value && index === 3) {
+      // Close keyboard when last digit is entered
+      Keyboard.dismiss();
     }
   };
 
@@ -64,6 +67,9 @@ export default function PinEntryScreen({ navigation }) {
     if (value && index < 5) {
       const nextInput = `otp${index + 1}`;
       refs[nextInput]?.focus();
+    } else if (value && index === 5) {
+      // Close keyboard when last digit is entered
+      Keyboard.dismiss();
     }
   };
 
@@ -115,41 +121,7 @@ export default function PinEntryScreen({ navigation }) {
     }
   };
 
-  const handleAgreeTerms = async () => {
-    setLoading(true);
-    try {
-      // Call API to mark terms agreed
-      const accessToken = await AsyncStorage.getItem("accessToken");
-      const response = await axios.post(TERMS_AGREE_API, { terms_agreed: true }, {
-        headers: {
-          'Authorization': `Bearer ${apiToken}`,
-          'X-User-Token': `Bearer ${accessToken}`, // User token
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.data.statusCode === 200) {
-        setModalVisible(false);
-        const role = await AsyncStorage.getItem("role");
-        await AsyncStorage.setItem("aggredTerms", "true");
-        let targetScreen = 'ProfileScreen';
-        if(role == 2) {
-          targetScreen = 'MainTabs';
-        } else if(role == 3) {
-          targetScreen = 'DeliveryListScreen';
-        }
-        navigation.navigate(targetScreen);
-      } else {
-        setErrorMessage('Failed to agree to terms. Please try again.');
-        setErrorModalVisible(true);
-      }
-    } catch (error) {
-      console.error('Error agreeing terms:', error.response?.data || error.message);
-      setErrorMessage('Failed to agree to terms. Please try again.');
-      setErrorModalVisible(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const setPinApiCall = async () => {
     const joinedPin = pin.join('');
@@ -171,8 +143,15 @@ export default function PinEntryScreen({ navigation }) {
         await AsyncStorage.setItem("isLoggedIn", "true");
         await AsyncStorage.setItem("role", String(response.data.user.role_id));
         setAccessTokenState(response.data.accessToken);
-        // Show terms modal after PIN is set
-        setModalVisible(true);
+        // Navigate to home screen after PIN is set
+        const role = await AsyncStorage.getItem("role");
+        let targetScreen = 'ProfileScreen';
+        if(role == 2) {
+          targetScreen = 'MainTabs';
+        } else if(role == 3) {
+          targetScreen = 'DeliveryListScreen';
+        }
+        navigation.navigate(targetScreen);
       } else {
         setErrorMessage('Failed to set PIN. Please try again.');
         setErrorModalVisible(true);
@@ -185,140 +164,100 @@ export default function PinEntryScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="black" />
-      <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
-      <Text style={styles.welcome}>Welcome user</Text>
-      <Text style={styles.instruction}>Enter 6-digit OTP</Text>
-      <View style={styles.pinContainer}>
-        {otpCode.map((digit, index) => (
-          <TextInput
-            key={index}
-            style={styles.otpPinInput}
-            keyboardType="number-pad"
-            maxLength={1}
-            ref={(input) => (refs[`otp${index}`] = input)}
-            onChangeText={(value) => handleOtpChange(value, index)}
-            value={digit ? '•' : ''}
-            secureTextEntry={false}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === 'Backspace') {
-                handleBackspace('otp');
-              }
-            }}
-          />
-        ))}
-      </View>
-      <Text style={styles.instruction}>Set New 4-digit PIN</Text>
-      <View style={styles.pinContainer}>
-        {pin.map((digit, index) => (
-          <TextInput
-            key={index}
-            style={styles.pinInput}
-            keyboardType="number-pad"
-            maxLength={1}
-            ref={(input) => (refs[`pin${index}`] = input)}
-            onChangeText={(value) => handlePinChange(value, index)}
-            value={digit ? '•' : ''}
-            secureTextEntry={true}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === 'Backspace') {
-                handleBackspace('pin');
-              }
-            }}
-          />
-        ))}
-      </View>
-      <Text style={styles.instruction}>Confirm 4-digit PIN</Text>
-      <View style={styles.pinContainer}>
-        {confirmPin.map((digit, index) => (
-          <TextInput
-            key={index}
-            style={styles.pinInput}
-            keyboardType="number-pad"
-            maxLength={1}
-            ref={(input) => (refs[`confirmPin${index}`] = input)}
-            onChangeText={(value) => handleConfirmPinChange(value, index)}
-            value={digit ? '•' : ''}
-            secureTextEntry={true}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === 'Backspace') {
-                handleBackspace('confirmPin');
-              }
-            }}
-          />
-        ))}
-      </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="black" />
+        <Image source={require('./../assets/userImage.png')} style={styles.avatar} />
+        <Text style={styles.welcome}>Welcome user</Text>
+        <Text style={styles.instruction}>Enter 6-digit OTP</Text>
+        {(otp || routeOtp) && <Text style={styles.otpMessage}>OTP: {routeOtp || otp}</Text>}
+        <View style={styles.pinContainer}>
+          {otpCode.map((digit, index) => (
+            <TextInput
+              key={index}
+              style={styles.otpPinInput}
+              keyboardType="number-pad"
+              maxLength={1}
+              ref={(input) => (refs[`otp${index}`] = input)}
+              onChangeText={(value) => handleOtpChange(value, index)}
+              value={digit ? '•' : ''}
+              secureTextEntry={false}
+              onKeyPress={({ nativeEvent }) => {
+                if (nativeEvent.key === 'Backspace') {
+                  handleBackspace('otp');
+                }
+              }}
+            />
+          ))}
+        </View>
+        <Text style={styles.instruction}>Set New 4-digit PIN</Text>
+        <View style={styles.pinContainer}>
+          {pin.map((digit, index) => (
+            <TextInput
+              key={index}
+              style={styles.pinInput}
+              keyboardType="number-pad"
+              maxLength={1}
+              ref={(input) => (refs[`pin${index}`] = input)}
+              onChangeText={(value) => handlePinChange(value, index)}
+              value={digit ? '•' : ''}
+              secureTextEntry={true}
+              onKeyPress={({ nativeEvent }) => {
+                if (nativeEvent.key === 'Backspace') {
+                  handleBackspace('pin');
+                }
+              }}
+            />
+          ))}
+        </View>
+        <Text style={styles.instruction}>Confirm 4-digit PIN</Text>
+        <View style={styles.pinContainer}>
+          {confirmPin.map((digit, index) => (
+            <TextInput
+              key={index}
+              style={styles.pinInput}
+              keyboardType="number-pad"
+              maxLength={1}
+              ref={(input) => (refs[`confirmPin${index}`] = input)}
+              onChangeText={(value) => handleConfirmPinChange(value, index)}
+              value={digit ? '•' : ''}
+              secureTextEntry={true}
+              onKeyPress={({ nativeEvent }) => {
+                if (nativeEvent.key === 'Backspace') {
+                  handleBackspace('confirmPin');
+                }
+              }}
+            />
+          ))}
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleSetPinPress}>
-        <Text style={styles.buttonText}>Confirm PIN</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleSetPinPress}>
+          <Text style={styles.buttonText}>Confirm PIN</Text>
+        </TouchableOpacity>
 
-      {/* Terms and Conditions Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <ScrollView>
-              <TermsAndConditionsScreen />
-              {/* <Text style={styles.modalTitle}>Terms and Conditions</Text>
-              <Text style={styles.modalText}>
-                Please read and agree to the terms and conditions before proceeding.
-              </Text>
-              <Text style={styles.modalText}>
-                1. Goods Once Received Cannot be Returned Or Exchanged.
-              </Text>
-              <Text style={styles.modalText}>
-                2. Delivery charges may differ based on distance.
-              </Text>
-              <Text style={styles.modalText}>
-                3. Minimum order should be Rs. 1000 for delivery.
-              </Text>
-              <Text style={styles.modalText}>
-                4. We ensure that the BuyTown products you order are of high quality and trustworthy.
-              </Text>
-              <Text style={styles.modalText}>
-                5. Providing you with the best service is our top priority.
-              </Text> */}
-              {/* Add more terms as needed */}
-            </ScrollView>
-            {loading ? (
-              <ActivityIndicator size="large" color="#eb1f2a" />
-            ) : (
-              <TouchableOpacity style={styles.agreeButton} onPress={handleAgreeTerms}>
-                <Text style={styles.agreeButtonText}>I Agree</Text>
+
+
+        {/* Error Modal */}
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={errorModalVisible}
+          onRequestClose={() => {
+            setErrorModalVisible(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Error</Text>
+              <Text style={styles.modalText}>{errorMessage}</Text>
+              <TouchableOpacity style={styles.agreeButton} onPress={() => setErrorModalVisible(false)}>
+                <Text style={styles.agreeButtonText}>OK</Text>
               </TouchableOpacity>
-            )}
+            </View>
           </View>
-        </View>
-      </Modal>
-
-      {/* Error Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={errorModalVisible}
-        onRequestClose={() => {
-          setErrorModalVisible(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Error</Text>
-            <Text style={styles.modalText}>{errorMessage}</Text>
-            <TouchableOpacity style={styles.agreeButton} onPress={() => setErrorModalVisible(false)}>
-              <Text style={styles.agreeButtonText}>OK</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -327,6 +266,7 @@ const styles = StyleSheet.create({
   avatar: { width: 100, height: 100, borderRadius: 50, marginBottom: 20 },
   welcome: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, color:"#000000" },
   instruction: { fontSize: 16, marginBottom: 20, color: '#000000' },
+  otpMessage: { fontSize: 14, marginBottom: 10, color: '#000000', textAlign: 'center' },
   pinContainer: { flexDirection: 'row', marginBottom: 30, justifyContent: 'space-between', width: '80%' },
   pinInput: {
     borderBottomWidth: 2,
