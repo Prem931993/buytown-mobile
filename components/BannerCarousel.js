@@ -129,7 +129,7 @@ export default function BannerCarousel({ navigation }) {
 
 const styles = StyleSheet.create({
   carouselContainer: {
-    height: 200,
+    height: 160,
     marginTop: 30,
     paddingLeft: 20,
     paddingRight: 20,

@@ -34,7 +34,7 @@ const TERMS_AGREE_API = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/auth/user/agr
 
 const HomeScreen = memo(function HomeScreen() {
   const { width } = useWindowDimensions();
-  const { apiToken, accessTokens, onGenerateToken, loadingTokens } =
+  const { apiToken, accessTokens, onGenerateToken, loadingTokens, generalSettings } =
     useContext(AppContext);
     
 
@@ -394,9 +394,13 @@ useEffect(() => {
     );
   };
 
+  // useEffect(()=> {
+  //   console.log("generalSettings", generalSettings)
+  // }, [generalSettings])
+
   if (showTerms) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: generalSettings?.primary_color }} edges={['top']}>
         <View style={styles.termsHeader}>
           <Text style={styles.termsTitle}>Terms and Conditions</Text>
         </View>
@@ -440,7 +444,7 @@ useEffect(() => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: generalSettings?.primary_color }} edges={['top']}>
       <Modal
         visible={showProfileModal}
         transparent={true}
@@ -482,108 +486,115 @@ useEffect(() => {
       )}
 
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 60 }}
+        contentContainerStyle={{ paddingBottom: 0 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         <HeaderBar />
         <Categories />
-        <BannerCarousel navigation={navigation} />
+        <View style={{
+          backgroundColor:"#ffffff", 
+          marginTop:30, 
+          borderTopLeftRadius:30, 
+          borderTopRightRadius: 30
+        }}>
+          <BannerCarousel navigation={navigation} />
 
-        {/* Top Selling Products */}
-        <View style={styles.productWrap}>
-          <View style={styles.sectionRow}>
-            <Text style={styles.sectionTitle}>Top Selling Products</Text>
+          {/* Top Selling Products */}
+          <View style={[styles.productWrap, {backgroundColor: generalSettings?.secondary_color}]}>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>Top Selling Products</Text>
+            </View>
+            <View style={styles.sectionRow}></View>
+            {topSellingProducts.filter(item => item).map((item) => {
+              const isInWishlist = item.is_wishlisted || false;
+              return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.flashCard}
+                onPress={() =>
+                  navigation.navigate('ProductDetailsScreen', { product: item })
+                }
+                delayPressIn={0}
+              >
+                <View style={styles.imageWrapper}>
+                  <Image
+                    source={{ uri: item?.images[0]?.path }}
+                    style={styles.flashImage}
+                  />
+                  {item.isBestSeller && (
+                    <View style={styles.bestSellerLabel}>
+                      <Text style={styles.bestSellerText}>Best Seller</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.wishlistIcon}
+                    onPress={() => toggleWishlist(item.id)}
+                  >
+                    <Icon
+                      name={isInWishlist ? "heart" : "heart-outline"}
+                      size={24}
+                      color={isInWishlist ? "#F44336" : "#666"}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.flashName}>{item.name}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.offerPrice}>
+                    <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
+                    {item?.selling_price}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              )
+            })}
           </View>
-        <View style={styles.sectionRow}></View>
-          {topSellingProducts.filter(item => item).map((item) => {
-            const isInWishlist = item.is_wishlisted || false;
-            return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.flashCard}
-              onPress={() =>
-                navigation.navigate('ProductDetailsScreen', { product: item })
-              }
-              delayPressIn={0}
-            >
-              <View style={styles.imageWrapper}>
-                <Image
-                  source={{ uri: item?.images[0]?.path }}
-                  style={styles.flashImage}
-                />
-                {item.isBestSeller && (
-                  <View style={styles.bestSellerLabel}>
-                    <Text style={styles.bestSellerText}>Best Seller</Text>
-                  </View>
-                )}
-                <TouchableOpacity
-                  style={styles.wishlistIcon}
-                  onPress={() => toggleWishlist(item.id)}
-                >
-                  <Icon
-                    name={isInWishlist ? "heart" : "heart-outline"}
-                    size={24}
-                    color={isInWishlist ? "#F44336" : "#666"}
+
+          <RecentOrders />
+          <BrandBar />
+
+          {/* Random Products */}
+          <View style={styles.productList}>
+            {randomProducts?.filter(item => item).map((item) => {
+              const isInWishlist = item.is_wishlisted || false;
+              return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.flashCard}
+                onPress={() =>
+                  navigation.push('ProductDetailsScreen', { product: item }) // pass full object
+                }
+                delayPressIn={0}
+              >
+                <View style={styles.imageWrapper}>
+                  <Image
+                    source={{ uri: item?.images[0]?.path }}
+                    style={styles.flashImage}
                   />
-                </TouchableOpacity>
-              </View>
-
-              <Text style={styles.flashName}>{item.name}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.offerPrice}>
-                  <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
-                  {item?.selling_price}
-                </Text>
-              </View>
-            </TouchableOpacity>
-            )
-          })}
-        </View>
-
-        <RecentOrders />
-        <BrandBar />
-
-        {/* Random Products */}
-        <View style={styles.productList}>
-          {randomProducts?.filter(item => item).map((item) => {
-            const isInWishlist = item.is_wishlisted || false;
-            return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.flashCard}
-              onPress={() =>
-                navigation.push('ProductDetailsScreen', { product: item }) // pass full object
-              }
-              delayPressIn={0}
-            >
-              <View style={styles.imageWrapper}>
-                <Image
-                  source={{ uri: item?.images[0]?.path }}
-                  style={styles.flashImage}
-                />
-                <TouchableOpacity
-                  style={styles.wishlistIcon}
-                  onPress={() => toggleWishlist(item.id)}
-                >
-                  <Icon
-                    name={isInWishlist ? "heart" : "heart-outline"}
-                    size={24}
-                    color={isInWishlist ? "#F44336" : "#666"}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.flashName}>{item.name}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.offerPrice}>
-                  <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
-                  {item?.selling_price}
-                </Text>
-              </View>
-            </TouchableOpacity>
-            )
-          })}
+                  <TouchableOpacity
+                    style={styles.wishlistIcon}
+                    onPress={() => toggleWishlist(item.id)}
+                  >
+                    <Icon
+                      name={isInWishlist ? "heart" : "heart-outline"}
+                      size={24}
+                      color={isInWishlist ? "#F44336" : "#666"}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.flashName}>{item.name}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.offerPrice}>
+                    <Text style={styles.strikeOut}>₹{item.price}</Text> - ₹
+                    {item?.selling_price}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              )
+            })}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -598,7 +609,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 5,
     marginTop: 20,
-    width:"100%"
+    width:"100%",
+    
   },
   sectionTitle: {
     fontSize: 18,
@@ -610,10 +622,10 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
-    backgroundColor: '#f8f7ffff',
+    // backgroundColor: '#fdf5d9ff',
     marginTop: 30,
     marginHorizontal: 20,
-    borderRadius: 10,
+    borderRadius: 15,
     paddingBottom: 15,
   },
   productList: {
@@ -623,6 +635,7 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginHorizontal: 20,
     borderRadius: 10,
+    paddingBottom: 15,
   },
   flashCard: {
     width: '48%',

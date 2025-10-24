@@ -3,8 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useEffect, useState } from "react";
 import { Alert } from "react-native";
 import { getBearerToken } from "./../auth/authServices";
+import axios from "axios";
 
 export const AppContext = createContext();
+
+const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/general-settings`;
 
 export const AppProvider = ({ children }) => {
   const [apiToken, setapiToken] = useState(null);
@@ -13,6 +16,7 @@ export const AppProvider = ({ children }) => {
   const [otpCode, setOtpCode] = useState(null);
   const [cart, setCart] = useState({ product_id: null, quantity: 0 });
   const [loadingTokens, setLoadingTokens] = useState(true); // 👈 added
+  const [generalSettings, setGeneralSettings] = useState([])
 
   const [cartRefresh, setCartRefresh] = useState(false)
 
@@ -184,6 +188,43 @@ export const AppProvider = ({ children }) => {
     setLogoutModalVisible(false);
   };
 
+  useEffect(()=> {
+    const fetchGeneralSettings = async() => {
+      // setLoading(true);
+      try {
+        const response = await axios.get(`${API_URL}`, {
+          headers: {
+            'Authorization': `Bearer ${apiToken}`, // API token
+            'X-User-Token': `Bearer ${accessTokens}`, // User token
+            'Content-Type': 'application/json'
+          }
+        })
+        // setLoading(false);
+        console.log("response general settings", response)
+        if(response.status === 200) {
+          setGeneralSettings(response.data.data)
+        }
+      } catch (error) {
+        console.error("Error fetching top-selling products:", error.response?.data || error.message);
+        if (error.response?.status === 401) {
+          // Clear invalid tokens
+          await AsyncStorage.removeItem("accessToken");
+          await AsyncStorage.removeItem("apiToken");
+          // Regenerate API token
+          onGenerateToken(true);
+        }
+        // setLoading(false);
+        // Don't throw to avoid uncaught promise rejection
+      }
+    }
+
+    if(apiToken && accessTokens) {
+      fetchGeneralSettings()
+    }
+      
+    
+  }, [apiToken, accessTokens])
+
   return (
     <AppContext.Provider
       value={{
@@ -206,7 +247,8 @@ export const AppProvider = ({ children }) => {
         cartRefresh,
         logout,
         logoutModalVisible,
-        closeLogoutModal
+        closeLogoutModal,
+        generalSettings
       }}
     >
       {children}

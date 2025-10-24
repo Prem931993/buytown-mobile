@@ -52,7 +52,7 @@ const NotificationItem = memo(({ item, onMarkAsRead, onDelete }) => {
 
 export default function HeaderBar() {
   const navigation = useNavigation();
-  const { apiToken, accessTokens } = useContext(AppContext);
+  const { apiToken, accessTokens, generalSettings } = useContext(AppContext);
 
   const [searchText, setSearchText] = useState('');
   const [searchResultsProducts, setSearchResultsProducts] = useState([]);
@@ -389,18 +389,19 @@ export default function HeaderBar() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: generalSettings?.primary_color }]}>
        <StatusBar barStyle="dark-content" backgroundColor="black" />
       
       {/* Top Row */}
       <View style={styles.topRow}>
         <Image
-          source={require('./../assets/logo-brand.png')}
+          // source={require('./../assets/logo-brand.png')}
+          source={{ uri: generalSettings?.logos?.[0]?.file_path }}
           style={styles.logo}
           resizeMode="contain"
         />
         <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.notificationIconContainer}>
-          <Icon name="notifications-outline" size={24} color="#000000" />
+          <Icon name="notifications-outline" size={24} color={generalSettings?.text_color || "#000000"} />
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
@@ -426,11 +427,11 @@ export default function HeaderBar() {
 
       {/* Location Row */}
       <TouchableOpacity style={styles.locationRow} onPress={getCurrentLocation} disabled={locationLoading}>
-        <Icon name="location-outline" size={18} color="#000000" style={{ marginRight: 5 }} />
+        <Icon name="location-outline" size={18} color={generalSettings?.text_color || "#000000"} style={{ marginRight: 5 }} />
         {locationLoading ? (
           <ActivityIndicator size="small" color="#eb1f2a" />
         ) : (
-          <Text style={styles.locationText}>{currentLocation}</Text>
+          <Text style={[styles.locationText, {color:generalSettings?.text_color || "#000000"}]}>{currentLocation}</Text>
         )}
       </TouchableOpacity>
 
@@ -542,7 +543,7 @@ export default function HeaderBar() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#ffffff',
+    // backgroundColor: '#d3ac57',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 50,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   locationText: {
-    color: '#000000',
+    // color: '#000000',
     fontSize: 14,
   },
   resultsContainer: {

@@ -56,6 +56,14 @@ export default function Categories() {
 
   }, [apiToken, accessTokens, onGenerateToken])
 
+  const categoryImages = {
+    kitchen: require('../assets/kitchen.png'),
+    laminate: require('../assets/laminate.png'),
+    machine: require('../assets/machine.png'),
+    flutedPanel: require('../assets/fluted-panel.png'),
+    // Add other expected names
+  };
+
 
   return (
     <View style={styles.categories}>
@@ -64,13 +72,13 @@ export default function Categories() {
           onPress={() =>
             navigation.navigate('ProductListScreen', {category_id: cat?.id, name: cat?.name})
           }
-
+ 
         >
-          {/* <Image source={{uri: cat.image}} style={styles.categoryImage} /> */}
-          <Icon name={cat.description} size={28} color="#999" />
+          <Image source={categoryImages[cat.description]} style={styles.categoryImage} />
+          {/* <Icon name={cat.description} size={28} color="#999" /> */}
           <Text style={styles.categoryLabel}>{cat.name}</Text>
         </TouchableOpacity>
-      ))}
+      ))} 
       <TouchableOpacity style={styles.categoryItem} 
         // onPress={() => navigation.navigate('MainTabs', { screen: 'Category' })}
         onPress={() => {
@@ -80,7 +88,7 @@ export default function Categories() {
           });
         }}
       >
-          <Icon name='grid-outline' size={30} color="#999" />
+          <Icon name='grid-outline' size={28} color="#000000" />
           <Text style={styles.categoryLabel}>SEE MORE</Text>
         </TouchableOpacity>
     </View>
