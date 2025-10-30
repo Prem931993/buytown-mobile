@@ -28,7 +28,7 @@ const validationSchema = Yup.object().shape({
   firstname: Yup.string().required('First Name is required').min(2, 'First Name must be at least 2 characters'),
   lastname: Yup.string().required('Last Name is required').min(2, 'Last Name must be at least 2 characters'),
   email: Yup.string().email('Invalid email').required('Email is required'),
-  phone: Yup.string().required('Phone Number is required').matches(/^[0-9]{10}$/, 'Phone number must be 10 digits'),
+  phone: Yup.string().required('Phone Number is required').matches(/^\+91[0-9]{10}$/, 'Phone number must be +91 followed by 10 digits'),
   gstin: Yup.string().optional(),
   street: Yup.string().required('Street Address is required'),
   city: Yup.string().required('City is required'),
@@ -219,7 +219,7 @@ export default function ProfileScreen({ navigation }) {
             firstname: profile?.firstname || '',
             lastname: profile?.lastname || '',
             email: profile?.email || '',
-            phone: profile?.phone_no?.slice(-10) || '',
+            phone: profile?.phone_no ? `+91${profile.phone_no.slice(-10)}` : '',
             street: (() => {
               let parsedAddress = {};
               if (profile?.address) {
@@ -368,7 +368,7 @@ export default function ProfileScreen({ navigation }) {
                   onChangeText={handleChange('phone')}
                   onBlur={handleBlur('phone')}
                   keyboardType="phone-pad"
-                  maxLength={10}
+                  maxLength={13}
                   editable={false}
                 />
                 {touched.phone && errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}

@@ -6,19 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import InnerHeader from './../components/InnerHeader';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppContext } from './../ContextAPI/ContextAPI';
-import { getOrderDetails } from './../auth/paymentServices';
+import { getOrderDetails, downloadInvoice } from './../auth/paymentServices';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 export default function OrderDetailScreen({ route, navigation }) {
   const { orderId } = route.params;
   const { apiToken, accessTokens } = useContext(AppContext);
   const [orderDetails, setOrderDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -64,6 +68,44 @@ export default function OrderDetailScreen({ route, navigation }) {
 
   const shippingAddress = orderDetails.shippingAddress;
   const billingAddress = orderDetails.billingAddress;
+
+  const handleDownloadInvoice = async () => {
+    setDownloadingInvoice(true);
+    try {
+      const invoiceBlob = await downloadInvoice(orderId, apiToken, accessTokens);
+
+      // Convert blob to base64
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result.split(',')[1]; // Remove the data URL prefix
+          resolve(result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(invoiceBlob);
+      });
+
+      // Save the base64 data to a file
+      const fileUri = FileSystem.documentDirectory + `invoice_${orderId}.pdf`;
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: 'base64' });
+
+      // Share the file
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Download Invoice',
+        });
+        Alert.alert('Success', 'Invoice downloaded successfully. Check your Files app or share options.');
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      Alert.alert('Error', 'Failed to download invoice. Please try again.');
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -206,6 +248,26 @@ export default function OrderDetailScreen({ route, navigation }) {
             )}
           </View>
         </View>
+
+        {/* Download Invoice Button */}
+        {orderDetails.status === 'completed' && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={[styles.downloadButton, downloadingInvoice && styles.downloadButtonDisabled]}
+              onPress={handleDownloadInvoice}
+              disabled={downloadingInvoice}
+            >
+              {downloadingInvoice ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Icon name="download-outline" size={24} color="#fff" />
+              )}
+              <Text style={styles.downloadButtonText}>
+                {downloadingInvoice ? 'Downloading...' : 'Download Invoice'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -437,5 +499,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#7f8c8d',
     fontStyle: 'italic',
+  },
+  downloadButton: {
+    backgroundColor: '#000000',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+  },
+  downloadButtonDisabled: {
+    backgroundColor: '#cccccc',
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });

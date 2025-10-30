@@ -200,7 +200,6 @@ export const AppProvider = ({ children }) => {
           }
         })
         // setLoading(false);
-        console.log("response general settings", response)
         if(response.status === 200) {
           setGeneralSettings(response.data.data)
         }

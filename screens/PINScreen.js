@@ -65,7 +65,6 @@ export default function PinEntryScreen({ navigation }) {
             setAccessTokenState(accessToken);
           }
 
-          console.log("response.data", response.data);
           await AsyncStorage.setItem("refreshToken", String(response.data.refreshToken));
           await AsyncStorage.setItem("userId", String(response.data.user.id));
           await AsyncStorage.setItem("roleId", String(response.data.user.role_id));

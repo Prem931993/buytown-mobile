@@ -79,7 +79,7 @@ export default function Categories() {
           <Text style={styles.categoryLabel}>{cat.name}</Text>
         </TouchableOpacity>
       ))} 
-      <TouchableOpacity style={styles.categoryItem} 
+      <TouchableOpacity style={styles.categoryItem}
         // onPress={() => navigation.navigate('MainTabs', { screen: 'Category' })}
         onPress={() => {
           navigation.reset({
@@ -88,9 +88,11 @@ export default function Categories() {
           });
         }}
       >
+        <View style={styles.seeMoreButton}>
           <Icon name='grid-outline' size={28} color="#000000" />
-          <Text style={styles.categoryLabel}>SEE MORE</Text>
-        </TouchableOpacity>
+        </View>
+        <Text style={styles.categoryLabel}>SEE MORE</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -115,4 +117,10 @@ const styles = StyleSheet.create({
   categoryImage: {width: 30, height:30,},
   categoryItem: { alignItems: 'center' },
   categoryLabel: { fontSize: 8, marginTop: 4 },
+  seeMoreButton: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 50,
+    padding: 10,
+    marginBottom: 4,
+  },
 });

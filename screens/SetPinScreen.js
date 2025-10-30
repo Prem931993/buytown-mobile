@@ -73,12 +73,6 @@ export default function PinEntryScreen({ navigation, route }) {
     }
   };
 
-  useEffect(()=> {
-    if(otp) {
-      console.log("otp", otp);
-    }
-  }, [otp])
-
   const handleBackspace = (type) => {
     let array, setArray, prefix;
     if (type === 'pin') { array = pin; setArray = setPin; prefix = 'pin'; }
@@ -127,7 +121,6 @@ export default function PinEntryScreen({ navigation, route }) {
     const joinedPin = pin.join('');
     const joinedOtp = otpCode?.join('')
     const userId = await AsyncStorage.getItem("userId");
-    console.log(userId, joinedOtp, joinedPin )
     try {
       
       const response = await axios.post(`${API_URL}`, {userId: userId, otp:joinedOtp,  newPassword: joinedPin}, {

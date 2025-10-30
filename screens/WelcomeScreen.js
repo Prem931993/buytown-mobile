@@ -81,7 +81,7 @@ export default function WelcomeScreen() {
       :  
         <View style={styles.content}>
           <Image
-          source={require('./../assets/welcomeScreenImg.png')} // replace with your image path
+          source={require('./../assets/welcomenew2.png')} // replace with your image path
           style={styles.topImage}
         />
 

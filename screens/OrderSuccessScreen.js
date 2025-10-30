@@ -57,7 +57,7 @@ export default function OrderSuccessScreen({ route, navigation }) {
           </View>
           <Text style={styles.successTitle}>Order Placed Successfully!</Text>
           <Text style={styles.successSubtitle}>
-            Thank you for shopping with BuyTown. Your order has been confirmed.
+            Thank you for shopping with BuyTown. Your order is awaiting confirmation.
           </Text>
         </View>
 

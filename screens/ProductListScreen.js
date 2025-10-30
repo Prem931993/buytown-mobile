@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import InnerHeader from './../components/InnerHeader';
 import { AppContext } from './../ContextAPI/ContextAPI';
@@ -24,12 +24,15 @@ const { width, height } = Dimensions.get('window');
 export default function ProductListScreen({ route, navigation }) {
   const { category_id, name } = route.params;
   const { apiToken, accessTokens, onGenerateToken } = useContext(AppContext);
+  const insets = useSafeAreaInsets();
 
   const [filters, setFilters] = useState({});
   const [brands, setBrands] = useState([]); // Will use filters.brands
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [productList, setProductList] = useState([]);
   const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [selectedColors, setSelectedColors] = useState([]);
   const [selectedSizeDimensions, setSelectedSizeDimensions] = useState([]);
@@ -39,8 +42,28 @@ export default function ProductListScreen({ route, navigation }) {
   const [isSizeOpen, setIsSizeOpen] = useState(true);
   const [isPriceOpen, setIsPriceOpen] = useState(true);
   const [wishlistStatus, setWishlistStatus] = useState({});
+  const [currentFilters, setCurrentFilters] = useState({});
 
   const slideAnim = useRef(new Animated.Value(width * 0.8)).current;
+
+  const drawerStyle = {
+    position: 'absolute',
+    right: 0,
+    top: insets.top,
+    bottom: 0,
+    width: width * 0.8,
+    height: height - insets.top,
+    backgroundColor: '#f8f8f8',
+    flexDirection: 'column',
+    padding: 15,
+    borderTopLeftRadius: 25,
+    borderBottomLeftRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  };
 
   const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/v1/user/products`;
 
@@ -78,13 +101,13 @@ export default function ProductListScreen({ route, navigation }) {
     fetchFilters();
   }, [apiToken, accessTokens, category_id]);
 
-  const fetchProducts = async (filters = {}) => {
+  const fetchProducts = async (filters = {}, append = false) => {
     if (!apiToken || !accessTokens) return;
 
     try {
       const response = await axios.post(
         API_URL,
-        { page, category_id, ...(filters || {}) },
+        { page, limit: 20, category_id, brand_id: "", size_dimensions: "", colors: "", variation_ids: "", search: "", ...(filters || {}) },
         {
           headers: {
             'Authorization': `Bearer ${apiToken}`,
@@ -96,13 +119,37 @@ export default function ProductListScreen({ route, navigation }) {
 
       if (response.data.statusCode === 200) {
         const products = response.data.products;
-        setProductList(products);
-        // Initialize wishlist status for each product
-        const initialWishlistStatus = {};
-        products.forEach(product => {
-          initialWishlistStatus[product.id] = product.is_wishlisted || false;
-        });
-        setWishlistStatus(initialWishlistStatus);
+        // Filter out duplicates based on id
+        const uniqueProducts = products.filter((product, index, self) =>
+          index === self.findIndex(p => p.id === product.id)
+        );
+        if (append) {
+          setProductList(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newProducts = uniqueProducts.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newProducts];
+          });
+          // Update wishlist status for new products
+          setWishlistStatus(prev => {
+            const newStatus = { ...prev };
+            uniqueProducts.forEach(product => {
+              newStatus[product.id] = product.is_wishlisted || false;
+            });
+            return newStatus;
+          });
+        } else {
+          setProductList(uniqueProducts);
+          // Initialize wishlist status for each product
+          const initialWishlistStatus = {};
+          uniqueProducts.forEach(product => {
+            initialWishlistStatus[product.id] = product.is_wishlisted || false;
+          });
+          setWishlistStatus(initialWishlistStatus);
+        }
+        // Assume 20 products per page, if less than 20, no more pages
+        if (uniqueProducts.length < 20) {
+          setHasMore(false);
+        }
       }
     } catch (error) {
       console.error("Error fetching products:", error.response?.data || error.message);
@@ -111,12 +158,19 @@ export default function ProductListScreen({ route, navigation }) {
         await AsyncStorage.removeItem("Token");
         onGenerateToken(true);
       }
+    } finally {
+      setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, [apiToken, accessTokens, page]);
+    if (page === 1) {
+      fetchProducts(currentFilters);
+    } else if (hasMore && !loadingMore) {
+      setLoadingMore(true);
+      fetchProducts(currentFilters, true);
+    }
+  }, [apiToken, accessTokens, page, currentFilters]);
 
   useEffect(() => {
     Animated.timing(slideAnim, {
@@ -148,18 +202,18 @@ export default function ProductListScreen({ route, navigation }) {
 
 
   const renderHeader = () => (
-    <View style={{ 
-      paddingHorizontal: 15, 
-      backgroundColor: "#ffffff", 
+    <View style={{
+      paddingHorizontal: 15,
+      backgroundColor: "#ffffff",
       flex: 0,
-      flexDirection: "row", 
-      justifyContent: "space-between", 
+      flexDirection: "row",
+      justifyContent: "space-between",
       alignItems: "center"
     }}>
       <Text style={styles.categoryTitle}>{name}</Text>
 
-      <TouchableOpacity 
-        onPress={() => setDrawerVisible(true)} 
+      <TouchableOpacity
+        onPress={() => setDrawerVisible(true)}
         style={styles.filterButton}
       >
         <Icon name="filter" size={24} color="#000" />
@@ -227,6 +281,12 @@ export default function ProductListScreen({ route, navigation }) {
           columnWrapperStyle={{ justifyContent: 'space-between' }}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={null}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) {
+              setPage(prev => prev + 1);
+            }
+          }}
+          onEndReachedThreshold={0.5}
           renderItem={({ item }) => (
             <View style={styles.productCard}>
               {item.discount && (
@@ -290,7 +350,7 @@ export default function ProductListScreen({ route, navigation }) {
       >
         <View style={styles.overlay}>
           <TouchableOpacity style={styles.overlay} onPress={() => setDrawerVisible(false)} />
-          <Animated.View style={[styles.drawer, { transform: [{ translateX: slideAnim }] }]}>
+          <Animated.View style={[drawerStyle, { transform: [{ translateX: slideAnim }] }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <Text style={styles.drawerTitle}>Filters</Text>
               <TouchableOpacity onPress={() => setDrawerVisible(false)}>
@@ -447,13 +507,16 @@ export default function ProductListScreen({ route, navigation }) {
                 <Text style={styles.clearText}>Clear All</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => {
-                // setPage(1);
-                fetchProducts({
+                const filters = {
                   brand_id: selectedBrands.length > 0 ? selectedBrands : "",
                   colors: selectedColors.length > 0 ? selectedColors : "",
                   size_dimensions: selectedSizeDimensions.length > 0 ? selectedSizeDimensions : "",
                   // priceRange: selectedPriceRange
-                });
+                };
+                setCurrentFilters(filters);
+                setPage(1);
+                setHasMore(true);
+                fetchProducts(filters, false);
                 setDrawerVisible(false);
               }} style={styles.applyButton}>
                 <Text style={styles.applyText}>Apply Filters</Text>
@@ -538,33 +601,19 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  drawer: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: width * 0.8,
-    height: height,
-    backgroundColor: '#fff',
-    flexDirection: 'column',
-    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   drawerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 0,
-    
+    textAlign: 'center',
+    paddingVertical: 15,
   },
   filterSection: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginTop: 0,
-    marginBottom: 10,
-    
-    paddingTop:20,
-    // width:"90%"
+    color: '#333',
+    paddingVertical: 10,
   },
   optionText: {
     fontSize: 14,
@@ -581,13 +630,14 @@ const styles = StyleSheet.create({
   },
   filterOption: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 0,
-    borderColor: '#ccc',
-    backgroundColor:"#f4f4f4ff",
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
     borderRadius: 20,
     marginRight: 8,
     marginBottom: 8,
+    elevation: 1,
   },
   selectedFilterOption: {
     backgroundColor: '#F44336',
@@ -598,12 +648,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   buttonContainer: {
-    position: 'absolute',
-    bottom: 10,
-    left: 10,
-    right: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#f8f8f8',
   },
   clearButton: {
     backgroundColor: '#fff',
@@ -641,15 +690,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 20,
     paddingHorizontal:5,
-    paddingBottom: 80, // to account for buttons
   },
   accordionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 0,
+    marginTop: 10,
     marginBottom: 10,
-    borderTopWidth:1,
-    borderColor: '#ccc',
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    elevation: 2,
   },
 });

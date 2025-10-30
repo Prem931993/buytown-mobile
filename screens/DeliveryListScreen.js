@@ -20,6 +20,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppContext } from '../ContextAPI/ContextAPI';
 import CustomDropdown from '../components/CustomDropdown';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { downloadInvoice } from '../auth/paymentServices';
 
 const statusColors = {
   approved: '#3498db',
@@ -46,6 +49,7 @@ export default function DeliveryListScreen() {
   const [errorModalVisible, setErrorModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [downloadingInvoices, setDownloadingInvoices] = useState(new Set());
 
   const rejectionReasons = [
     { value: 'customer_not_available', label: 'Customer not available', message: 'The customer was not available at the delivery address.' },
@@ -200,6 +204,48 @@ export default function DeliveryListScreen() {
     );
   };
 
+  const handleDownloadInvoice = async (orderId) => {
+    setDownloadingInvoices(prev => new Set(prev).add(orderId));
+    try {
+      const invoiceBlob = await downloadInvoice(orderId, apiToken, accessTokens);
+
+      // Convert blob to base64
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result.split(',')[1]; // Remove the data URL prefix
+          resolve(result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(invoiceBlob);
+      });
+
+      // Save the base64 data to a file
+      const fileUri = FileSystem.documentDirectory + `invoice_${orderId}.pdf`;
+      await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: 'base64' });
+
+      // Share the file
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Download Invoice',
+        });
+        Alert.alert('Success', 'Invoice downloaded successfully. Check your Files app or share options.');
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (error) {
+      console.error('Error downloading invoice:', error);
+      Alert.alert('Error', 'Failed to download invoice. Please try again.');
+    } finally {
+      setDownloadingInvoices(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
+
   const renderOrderCard = ({ item }) => {
     // Parse delivery address if it's a JSON string
     let deliveryAddress = item.delivery_address || item.shipping_address || {};
@@ -297,6 +343,26 @@ export default function DeliveryListScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.mapBtn} onPress={openMapWithAddress}>
               <Ionicons name="map-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Download Invoice Button for Completed Orders */}
+        {(item.status === 'completed' || item.status === 'approved') && (
+          <View style={styles.bookingActions}>
+            <TouchableOpacity
+              style={styles.downloadBtn}
+              onPress={() => handleDownloadInvoice(item.id)}
+              disabled={downloadingInvoices.has(item.id)}
+            >
+              {downloadingInvoices.has(item.id) ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={18} color="#fff" />
+                  <Text style={styles.btnText}>Download Invoice</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -631,6 +697,15 @@ mapBtn: {
   paddingVertical: 10,
   alignItems: 'center',
   justifyContent: 'center',
+  minHeight: 60,
+},
+
+downloadBtn: {
+  flex: 1,
+  backgroundColor: '#8BC34A',
+  borderRadius: 10,
+  paddingVertical: 10,
+  alignItems: 'center',
   minHeight: 60,
 },
 
